@@ -1,19 +1,61 @@
 import { useEffect, useRef, useState } from 'react'
 
-const DEPTH = 18
+const DEPTH = 15
 const MULTI_PV = 3
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
-function cpToString(cp, turn) {
-  // cp is from White's perspective; flip when it's Black's turn
-  const score = turn === 'b' ? -cp : cp
-  const pawns = (score / 100).toFixed(2)
-  return score >= 0 ? `+${pawns}` : `${pawns}`
+function scoreToRelativeString(score, turn) {
+  if (!score) return '?'
+  if (typeof score.mate === 'number') {
+    const mate = turn === 'b' ? -score.mate : score.mate
+    return mate > 0 ? `M${mate}` : `-M${Math.abs(mate)}`
+  }
+  if (typeof score.cp === 'number') {
+    const cp = turn === 'b' ? -score.cp : score.cp
+    const pawns = (cp / 100).toFixed(2)
+    return cp >= 0 ? `+${pawns}` : `${pawns}`
+  }
+  return '?'
+}
+
+function parseFenTurn(fen) {
+  return fen.split(' ')[1] || 'w'
+}
+
+function parseInfoLine(msg) {
+  const depthMatch = msg.match(/depth (\d+)/)
+  const pvIdxMatch = msg.match(/multipv (\d+)/)
+  const pvMatch = msg.match(/ pv (.+)/)
+  if (!depthMatch || !pvIdxMatch || !pvMatch) return null
+
+  const cpMatch = msg.match(/ cp (-?\d+)/)
+  const mateMatch = msg.match(/ mate (-?\d+)/)
+  const line = pvMatch[1].trim().split(/\s+/)
+  const score =
+    mateMatch != null
+      ? { mate: Number.parseInt(mateMatch[1], 10) }
+      : cpMatch != null
+        ? { cp: Number.parseInt(cpMatch[1], 10) }
+        : null
+
+  if (!score) return null
+
+  return {
+    depth: Number.parseInt(depthMatch[1], 10),
+    multipv: Number.parseInt(pvIdxMatch[1], 10),
+    pv: line,
+    score,
+  }
 }
 
 export default function useStockfish(fen) {
   const workerRef = useRef(null)
+  const analysisIdRef = useRef(0)
+  const activeAnalysisRef = useRef(null)
   const [isReady, setIsReady] = useState(false)
   const [lines, setLines] = useState([])
+  const [bestMove, setBestMove] = useState(null)
+  const [evaluation, setEvaluation] = useState(null)
 
   useEffect(() => {
     // stockfish npm package exposes a WASM worker via this URL
@@ -23,10 +65,9 @@ export default function useStockfish(fen) {
     )
     workerRef.current = worker
 
-    const pending = {}
-
     worker.onmessage = e => {
       const msg = e.data
+      const activeAnalysis = activeAnalysisRef.current
 
       if (msg === 'uciok') {
         worker.postMessage('setoption name MultiPV value ' + MULTI_PV)
@@ -38,39 +79,54 @@ export default function useStockfish(fen) {
       }
 
       if (typeof msg === 'string' && msg.startsWith('info depth')) {
-        const pvIdx = (msg.match(/multipv (\d+)/) || [])[1]
-        if (!pvIdx) return
-
-        const depthMatch = msg.match(/depth (\d+)/)
-        const cpMatch = msg.match(/ cp (-?\d+)/)
-        const mateMatch = msg.match(/ mate (-?\d+)/)
-        const pvMatch = msg.match(/ pv (.+)/)
-
-        if (!pvMatch) return
-
-        const depth = depthMatch ? parseInt(depthMatch[1]) : 0
-        const moves = pvMatch[1].split(' ').slice(0, 6).join(' ')
-
-        let score = '?'
-        if (mateMatch) {
-          const m = parseInt(mateMatch[1])
-          score = m > 0 ? `M${m}` : `-M${Math.abs(m)}`
-        } else if (cpMatch) {
-          // fen turn is the 2nd space-separated token
-          const turn = fen === 'start' ? 'w' : fen.split(' ')[1]
-          score = cpToString(parseInt(cpMatch[1]), turn)
+        if (!activeAnalysis) return
+        const parsed = parseInfoLine(msg)
+        if (!parsed) return
+        if (parsed.depth > activeAnalysis.maxDepth) {
+          activeAnalysis.maxDepth = parsed.depth
         }
-
-        pending[pvIdx] = { score, moves, depth }
-
-        // Publish when we have all 3 lines at same depth
-        const depths = Object.values(pending).map(l => l.depth)
-        if (
-          Object.keys(pending).length === MULTI_PV &&
-          depths.every(d => d === depths[0])
-        ) {
-          setLines([1, 2, 3].map(i => pending[i]).filter(Boolean))
+        if (parsed.depth === activeAnalysis.maxDepth) {
+          activeAnalysis.pendingByPv[parsed.multipv] = parsed
         }
+      }
+
+      if (typeof msg === 'string' && msg.startsWith('bestmove')) {
+        if (!activeAnalysis) return
+        const moveMatch = msg.match(/^bestmove (\S+)/)
+        if (!moveMatch) return
+        const best = moveMatch[1] === '(none)' ? null : moveMatch[1]
+
+        const top = [1, 2, 3]
+          .map(i => activeAnalysis.pendingByPv[i])
+          .filter(Boolean)
+          .slice(0, MULTI_PV)
+
+        const turn = parseFenTurn(activeAnalysis.fen)
+        const mapped = top.map(item => ({
+          score: scoreToRelativeString(item.score, turn),
+          scoreCp: typeof item.score.cp === 'number' ? item.score.cp : null,
+          scoreMate:
+            typeof item.score.mate === 'number' ? item.score.mate : null,
+          moves: item.pv.slice(0, 6).join(' '),
+          pv: item.pv,
+          depth: item.depth,
+        }))
+
+        const bestLine = mapped[0] || null
+        if (activeAnalysis.id === analysisIdRef.current) {
+          setBestMove(best)
+          setLines(mapped)
+          setEvaluation(
+            bestLine
+              ? {
+                  score: bestLine.score,
+                  cp: bestLine.scoreCp,
+                  mate: bestLine.scoreMate,
+                }
+              : null,
+          )
+        }
+        activeAnalysisRef.current = null
       }
     }
 
@@ -84,13 +140,24 @@ export default function useStockfish(fen) {
 
   useEffect(() => {
     if (!isReady || !fen) return
+    const normalizedFen = fen === 'start' ? START_FEN : fen
+    analysisIdRef.current += 1
+    const analysisId = analysisIdRef.current
     setLines([])
+    setBestMove(null)
+    setEvaluation(null)
+
+    const localState = {
+      id: analysisId,
+      fen: normalizedFen,
+      pendingByPv: {},
+      maxDepth: 0,
+    }
+    activeAnalysisRef.current = localState
     workerRef.current.postMessage('stop')
-    workerRef.current.postMessage(
-      `position fen ${fen === 'start' ? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' : fen}`,
-    )
+    workerRef.current.postMessage(`position fen ${normalizedFen}`)
     workerRef.current.postMessage(`go depth ${DEPTH}`)
   }, [fen, isReady])
 
-  return { lines, isReady }
+  return { lines, isReady, bestMove, evaluation }
 }

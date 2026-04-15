@@ -3,6 +3,45 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  width: 100%;
+}
+
+.board-stage {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.board-wrap {
+  position: relative;
+  width: 480px;
+  height: 480px;
+}
+
+.bestmove-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.eval-bar {
+  width: 22px;
+  height: 480px;
+  border: 2px solid #0f3460;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.eval-black {
+  background: #222;
+  transition: height 200ms ease;
+}
+
+.eval-white {
+  background: #f2f2f2;
+  transition: height 200ms ease;
 }
 
 .chessboard {
@@ -10,9 +49,45 @@
   border-radius: 4px;
 }
 
+.fen-display {
+  width: 100%;
+  max-width: 512px;
+  font-size: 0.8rem;
+  color: #d6d6d6;
+  background: #1a1a2e;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  padding: 8px;
+  word-break: break-all;
+}
+
+.pgn-input {
+  width: 100%;
+  max-width: 512px;
+  min-height: 96px;
+  resize: vertical;
+  background: #1a1a2e;
+  color: #e6e6e6;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.pgn-error {
+  margin: -4px 0 0;
+  width: 100%;
+  max-width: 512px;
+  color: #ff8b8b;
+  font-size: 0.8rem;
+}
+
 .board-controls {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .board-controls button {
@@ -25,6 +100,83 @@
   font-size: 0.85rem;
 }
 
+.board-controls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .board-controls button:hover {
   background: #1a6aa8;
+}
+
+.board-status {
+  width: 100%;
+  max-width: 512px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #afafaf;
+}
+
+.move-grade-list {
+  width: 100%;
+  max-width: 512px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.move-grade-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  background: #1a1a2e;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+}
+
+.move-grade-san {
+  color: #ddd;
+}
+
+.move-grade-label {
+  font-weight: 600;
+}
+
+.move-grade-label.pending {
+  color: #888;
+}
+
+.move-grade-label.brilliant {
+  color: #44f1b8;
+}
+
+.move-grade-label.best {
+  color: #7ecfff;
+}
+
+.move-grade-label.excellent {
+  color: #7dff8e;
+}
+
+.move-grade-label.good {
+  color: #a6d17a;
+}
+
+.move-grade-label.inaccuracy {
+  color: #f6d96b;
+}
+
+.move-grade-label.mistake {
+  color: #ff9a58;
+}
+
+.move-grade-label.blunder {
+  color: #ff6b6b;
 }
