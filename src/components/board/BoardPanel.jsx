@@ -21,6 +21,9 @@ export default function BoardPanel({
   fen,
   onFenChange,
   onPgnChange,
+  onMovePlayed,
+  externalPgnToLoad,
+  externalPgnLoadId,
   evalLine,
   engineLines,
   bestMove,
@@ -66,6 +69,31 @@ export default function BoardPanel({
     setMoveIndex(nextMoveIndex)
     onFenChange(game.fen())
     onPgnChange(game.pgn())
+  }
+
+  const applyPgnToBoard = pgnText => {
+    const trimmed = pgnText.trim()
+    if (!trimmed) {
+      handleReset()
+      return true
+    }
+
+    const game = new Chess()
+    try {
+      game.loadPgn(trimmed)
+    } catch {
+      setPgnError('Invalid PGN. Please check the notation and try again.')
+      return false
+    }
+
+    const moves = game.history({ verbose: true })
+    setPgnError('')
+    setHistoryMoves(moves)
+    setMoveGrades(moves.map(() => null))
+    historyMovesRef.current = moves
+    moveIndexRef.current = moves.length
+    updatePosition(moves.length, moves)
+    return true
   }
 
   const moveToUci = move =>
@@ -157,6 +185,12 @@ export default function BoardPanel({
             return next
           })
           setMoveIndex(nextHistory.length)
+          onMovePlayed?.({
+            fen: game.fen(),
+            moveSan: move.san,
+            moveUci,
+            ply: nextHistory.length,
+          })
         } catch {
           return 'snapback'
         }
@@ -171,7 +205,7 @@ export default function BoardPanel({
     return () => {
       boardInstanceRef.current?.destroy()
     }
-  }, [onFenChange, onPgnChange])
+  }, [onFenChange, onPgnChange, onMovePlayed])
 
   const handleReset = () => {
     liveGameRef.current = new Chess()
@@ -189,27 +223,7 @@ export default function BoardPanel({
   }
 
   const handleLoadPgn = () => {
-    const trimmed = pgnInput.trim()
-    if (!trimmed) {
-      handleReset()
-      return
-    }
-
-    const game = new Chess()
-    try {
-      game.loadPgn(trimmed)
-    } catch {
-      setPgnError('Invalid PGN. Please check the notation and try again.')
-      return
-    }
-
-    const moves = game.history({ verbose: true })
-    setPgnError('')
-    setHistoryMoves(moves)
-    setMoveGrades(moves.map(() => null))
-    historyMovesRef.current = moves
-    moveIndexRef.current = moves.length
-    updatePosition(moves.length, moves)
+    applyPgnToBoard(pgnInput)
   }
 
   const handleStepBack = () => {
@@ -221,6 +235,14 @@ export default function BoardPanel({
     if (moveIndex >= historyMoves.length) return
     updatePosition(moveIndex + 1)
   }
+
+  useEffect(() => {
+    if (!externalPgnLoadId || !externalPgnToLoad) return
+    setPgnInput(externalPgnToLoad)
+    applyPgnToBoard(externalPgnToLoad)
+    // Only react when a new external load id arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalPgnLoadId])
 
   return (
     <div className="board-panel">

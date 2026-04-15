@@ -1,0 +1,108 @@
+.game-import-panel {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.game-import-panel h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7ecfff;
+}
+
+.import-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.import-controls input {
+  flex: 1;
+  background: #0f1f3d;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  color: #e0e0e0;
+  padding: 6px 10px;
+  font-size: 0.875rem;
+}
+
+.import-controls button {
+  padding: 6px 12px;
+  background: #1a6aa8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.import-controls button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.game-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.game-item {
+  background: #1a1a2e;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.game-meta {
+  min-width: 0;
+}
+
+.game-title {
+  font-size: 0.85rem;
+  color: #e5e5e5;
+}
+
+.game-subtitle {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: #aab7d2;
+}
+
+.game-tags {
+  margin-top: 5px;
+  display: flex;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #7ecfff;
+  text-transform: uppercase;
+}
+
+.game-item button {
+  align-self: center;
+  padding: 6px 10px;
+  background: #0f3460;
+  color: #fff;
+  border: 1px solid #1a6aa8;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.import-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #ff8b8b;
+}

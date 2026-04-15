@@ -86,3 +86,16 @@
 .chat-input-row button:hover {
   background: #2585cc;
 }
+
+.chat-input-row button:disabled,
+.chat-input-row textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.chat-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #ff8b8b;
+  word-break: break-word;
+}
