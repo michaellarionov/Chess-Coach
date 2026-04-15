@@ -1,8 +1,45 @@
 .analysis-panel {
+  --analysis-panel-height: 17.5rem;
   background: #16213e;
   border: 1px solid #0f3460;
   border-radius: 6px;
   padding: 12px 16px;
+  height: var(--analysis-panel-height);
+  max-height: var(--analysis-panel-height);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.analysis-panel--embedded {
+  width: 100%;
+  max-width: 512px;
+  padding: 10px 12px;
+}
+
+.analysis-panel__main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.analysis-panel__status {
+  flex-shrink: 0;
+  min-height: 2.75rem;
+  max-height: 4.5rem;
+  overflow-y: auto;
+}
+
+.analysis-panel__status .status {
+  margin: 0;
+}
+
+.analysis-panel--embedded h2 {
+  font-size: 0.82rem;
+  margin-bottom: 8px;
 }
 
 .analysis-panel h2 {
@@ -19,10 +56,18 @@
   color: #888;
 }
 
+.status-error {
+  color: #ff8b8b;
+}
+
 .lines {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 4px 0 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -30,19 +75,24 @@
 
 .line {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   font-size: 0.85rem;
+  align-items: baseline;
 }
 
 .score {
   font-weight: 600;
   color: #7ecfff;
   min-width: 52px;
+  flex-shrink: 0;
 }
 
 .moves {
+  flex: 1;
+  min-width: 0;
   color: #ccc;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.45;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as tf from '@tensorflow/tfjs'
 import { Chess } from 'chess.js'
+import { getStockfishWorkerUrl } from '../../utils/stockfishWorkerUrl.js'
 import './MLPanel.css'
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
@@ -100,9 +101,7 @@ export default function MLPanel({ onProfileChange }) {
         return
       }
 
-      const worker = new Worker(
-        new URL('../../workers/stockfish.worker.js', import.meta.url),
-      )
+      const worker = new Worker(getStockfishWorkerUrl())
       workerRef.current = worker
 
       worker.onmessage = e => {

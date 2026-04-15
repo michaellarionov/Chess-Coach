@@ -8,7 +8,13 @@ export default defineConfig({
   },
   server: {
     headers: {
-      // Required for SharedArrayBuffer (Stockfish WASM multithreading)
+      // Optional: enables threaded Stockfish if you swap builds; safe with lite-single too
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
+  preview: {
+    headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },

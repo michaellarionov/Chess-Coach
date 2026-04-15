@@ -6,6 +6,11 @@
   width: 100%;
 }
 
+.board-panel-analysis {
+  width: 100%;
+  max-width: 512px;
+}
+
 .board-stage {
   display: flex;
   align-items: stretch;
@@ -19,29 +24,38 @@
   max-width: 100%;
 }
 
-.bestmove-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
 .eval-bar {
-  width: 22px;
+  position: relative;
+  width: 28px;
+  flex-shrink: 0;
   border: 2px solid #0f3460;
   border-radius: 4px;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  transition: background 180ms ease;
 }
 
-.eval-black {
-  background: #222;
-  transition: height 200ms ease;
+.eval-bar__value {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 4px);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 
-.eval-white {
-  background: #f2f2f2;
-  transition: height 200ms ease;
+.eval-bar__value--bottom {
+  bottom: 6px;
+  color: #1a1a1a;
+}
+
+.eval-bar__value--top {
+  top: 6px;
+  color: #f0f0f0;
 }
 
 .chessboard {
@@ -106,7 +120,11 @@
   }
 
   .eval-bar {
-    width: 16px;
+    width: 22px;
+  }
+
+  .eval-bar__value {
+    font-size: 0.62rem;
   }
 
   .board-controls button {
@@ -142,7 +160,7 @@
   width: 100%;
   max-width: 512px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   font-size: 0.8rem;
   color: #afafaf;
 }

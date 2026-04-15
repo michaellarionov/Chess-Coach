@@ -11,9 +11,10 @@ const pub = resolve(root, 'public')
 mkdirSync(pub, { recursive: true })
 
 const copies = [
-  // Stockfish WASM engine (browser build)
-  ['stockfish/bin/stockfish.js',   'stockfish.js'],
-  ['stockfish/bin/stockfish.wasm', 'stockfish.wasm'],
+  // Stockfish WASM: lite SINGLE-THREADED build works without SharedArrayBuffer / COOP+COEP.
+  // The default stockfish.js uses pthreads and stays on "Loading…" on many static hosts.
+  ['stockfish/bin/stockfish-18-lite-single.js', 'stockfish.js'],
+  ['stockfish/bin/stockfish-18-lite-single.wasm', 'stockfish.wasm'],
   // chessboard.js jQuery plugin (no ESM exports — loaded as global)
   ['@chrisoakman/chessboardjs/dist/chessboard-1.0.0.min.js',  'chessboard-1.0.0.min.js'],
   ['@chrisoakman/chessboardjs/dist/chessboard-1.0.0.min.css', 'chessboard-1.0.0.min.css'],

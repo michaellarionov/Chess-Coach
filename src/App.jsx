@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import BoardPanel from './components/board/BoardPanel.jsx'
-import AnalysisPanel from './components/analysis/AnalysisPanel.jsx'
 import ChatPanel from './components/chat/ChatPanel.jsx'
 import MLPanel from './components/ml/MLPanel.jsx'
 import GameImportPanel from './components/import/GameImportPanel.jsx'
@@ -34,7 +33,7 @@ export default function App() {
   })
   const [trainerFeedbackContext, setTrainerFeedbackContext] = useState(null)
   const [autoExplainContext, setAutoExplainContext] = useState(null)
-  const { lines, isReady, bestMove, evaluation } = useStockfish(fen)
+  const { lines, isReady, bestMove, evaluation, engineError } = useStockfish(fen)
 
   const handleLoadImportedGame = gamePgn => {
     setExternalPgnToLoad(gamePgn)
@@ -102,6 +101,7 @@ export default function App() {
             bestMove={bestMove}
             evaluation={evaluation}
             isEngineReady={isReady}
+            engineError={engineError}
           />
         </div>
         <div className="right-panel">
@@ -111,12 +111,6 @@ export default function App() {
             onTrainerConfigChange={setTrainerConfig}
           />
           <GameImportPanel onLoadGame={handleLoadImportedGame} />
-          <AnalysisPanel
-            lines={lines}
-            bestMove={bestMove}
-            evaluation={evaluation}
-            isReady={isReady}
-          />
           <ChatPanel
             fen={fen}
             pgn={pgn}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess } from 'chess.js'
 import openingsByFen from '../../data/openingsByFen.json'
+import AnalysisPanel from '../analysis/AnalysisPanel.jsx'
 import './BoardPanel.css'
 
 // chessboard.js and jQuery are loaded as globals via <script> tags in index.html
@@ -16,6 +17,79 @@ function scoreToWhiteFraction(score) {
   if (Number.isNaN(value)) return 0.5
   const normalized = 1 / (1 + Math.exp(-value / 1.6))
   return Math.min(1, Math.max(0, normalized))
+}
+
+/**
+ * Map engine score to bar fill (0 = Black ahead, 1 = White ahead).
+ * `evaluation` cp/mate are White POV (normalized in useStockfish from UCI SPOV).
+ */
+function engineScoreToBarFraction({ cp, mate }) {
+  if (typeof mate === 'number') {
+    return mate > 0 ? 1 : 0
+  }
+  if (typeof cp === 'number') {
+    const pawns = cp / 100
+    const normalized = 1 / (1 + Math.exp(-pawns / 1.6))
+    return Math.min(1, Math.max(0, normalized))
+  }
+  return null
+}
+
+/** White POV: +1 white ahead, −1 black ahead (used for label placement). */
+function evalWhiteAdvantageSign(evaluation, evalLine) {
+  if (evaluation) {
+    if (typeof evaluation.mate === 'number') {
+      if (evaluation.mate > 0) return 1
+      if (evaluation.mate < 0) return -1
+      return 0
+    }
+    if (typeof evaluation.cp === 'number') {
+      if (evaluation.cp > 0) return 1
+      if (evaluation.cp < 0) return -1
+      return 0
+    }
+    const s = evaluation.score
+    if (typeof s === 'string') {
+      if (s.startsWith('M') && !s.startsWith('-M')) return 1
+      if (s.startsWith('-M')) return -1
+      const n = Number.parseFloat(s.replace(/^\+/, ''))
+      if (!Number.isNaN(n)) {
+        if (n > 0) return 1
+        if (n < 0) return -1
+      }
+    }
+  }
+  const fallback = evalLine?.score
+  if (typeof fallback === 'string') {
+    if (fallback.startsWith('M') && !fallback.startsWith('-M')) return 1
+    if (fallback.startsWith('-M')) return -1
+    const n = Number.parseFloat(fallback.replace(/^\+/, ''))
+    if (!Number.isNaN(n)) {
+      if (n > 0) return 1
+      if (n < 0) return -1
+    }
+  }
+  return 0
+}
+
+/** Short eval text inside the bar (e.g. 0.3, −1.2, M2). */
+function formatEvalBarLabel(evaluation, evalLine) {
+  if (evaluation && typeof evaluation.mate === 'number') {
+    const m = evaluation.mate
+    if (m > 0) return `M${m}`
+    if (m < 0) return `-M${Math.abs(m)}`
+    return 'M0'
+  }
+  if (evaluation && typeof evaluation.cp === 'number') {
+    const p = evaluation.cp / 100
+    return p.toFixed(1)
+  }
+  const fallback = evalLine?.score || evaluation?.score
+  if (typeof fallback !== 'string') return null
+  const n = Number.parseFloat(fallback.replace(/^\+/, ''))
+  if (!Number.isNaN(n)) return n.toFixed(1)
+  if (/^-?M\d+/.test(fallback)) return fallback.replace(/^\+/, '')
+  return null
 }
 
 function normalizeFen(fen) {
@@ -82,6 +156,7 @@ export default function BoardPanel({
   bestMove,
   evaluation,
   isEngineReady,
+  engineError,
 }) {
   const calcBoardSize = () => {
     if (typeof window === 'undefined') return 480
@@ -135,10 +210,13 @@ export default function BoardPanel({
     boardInstanceRef.current.position?.(liveGameRef.current.fen())
   }, [boardSize])
 
-  const evalFraction = useMemo(
-    () => scoreToWhiteFraction(evaluation?.score || evalLine?.score),
-    [evaluation, evalLine],
-  )
+  const evalFraction = useMemo(() => {
+    if (evaluation && (evaluation.cp != null || evaluation.mate != null)) {
+      const fromEngine = engineScoreToBarFraction(evaluation)
+      if (fromEngine != null) return fromEngine
+    }
+    return scoreToWhiteFraction(evaluation?.score || evalLine?.score)
+  }, [evaluation, evalLine])
   const trainerEnabled = Boolean(trainerConfig?.enabled && trainerConfig?.line)
 
   const finishTrainerAttempt = success => {
@@ -493,21 +571,35 @@ export default function BoardPanel({
   const currentOpening = openingState.perPly[moveIndex] || null
   const theoryExited =
     openingState.theoryExitPly != null && moveIndex >= openingState.theoryExitPly
-  const arrowMove = trainerHintMove || bestMove
-  const squareSize = boardSize / 8
+
+  const evalBarLabel =
+    !engineError && isEngineReady
+      ? formatEvalBarLabel(evaluation, evalLine)
+      : null
+  const evalAdv = evalWhiteAdvantageSign(evaluation, evalLine)
 
   return (
     <div className="board-panel">
       <div className="board-stage">
-        <div className="eval-bar" style={{ height: boardSize }}>
-          <div
-            className="eval-black"
-            style={{ height: `${(1 - evalFraction) * 100}%` }}
-          />
-          <div
-            className="eval-white"
-            style={{ height: `${evalFraction * 100}%` }}
-          />
+        <div
+          className="eval-bar"
+          style={{
+            height: boardSize,
+            background: `linear-gradient(to top, #f2f2f2 0%, #f2f2f2 ${evalFraction * 100}%, #222 ${evalFraction * 100}%, #222 100%)`,
+          }}
+          title={`Eval (White POV): ${evaluation?.score ?? evalLine?.score ?? '…'}`}
+        >
+          {evalBarLabel != null && (
+            <span
+              className={
+                evalAdv >= 0
+                  ? 'eval-bar__value eval-bar__value--bottom'
+                  : 'eval-bar__value eval-bar__value--top'
+              }
+            >
+              {evalBarLabel}
+            </span>
+          )}
         </div>
         <div className="board-wrap">
           <div
@@ -515,59 +607,18 @@ export default function BoardPanel({
             className="chessboard"
             style={{ width: boardSize, height: boardSize }}
           />
-          {arrowMove && arrowMove.length >= 4 && (
-            <svg className="bestmove-overlay" viewBox={`0 0 ${boardSize} ${boardSize}`}>
-              {(() => {
-                const files = 'abcdefgh'
-                const from = arrowMove.slice(0, 2)
-                const to = arrowMove.slice(2, 4)
-                const fromFile = files.indexOf(from[0])
-                const toFile = files.indexOf(to[0])
-                const fromRank = Number.parseInt(from[1], 10)
-                const toRank = Number.parseInt(to[1], 10)
-                if (
-                  fromFile < 0 ||
-                  toFile < 0 ||
-                  Number.isNaN(fromRank) ||
-                  Number.isNaN(toRank)
-                ) {
-                  return null
-                }
-                const fromX = fromFile * squareSize + squareSize / 2
-                const fromY = (8 - fromRank) * squareSize + squareSize / 2
-                const toX = toFile * squareSize + squareSize / 2
-                const toY = (8 - toRank) * squareSize + squareSize / 2
-                return (
-                  <>
-                    <defs>
-                      <marker
-                        id="bestmove-arrowhead"
-                        markerWidth="7"
-                        markerHeight="7"
-                        refX="6"
-                        refY="3.5"
-                        orient="auto"
-                      >
-                        <polygon points="0 0, 7 3.5, 0 7" fill="#23e7b5" />
-                      </marker>
-                    </defs>
-                    <line
-                      x1={fromX}
-                      y1={fromY}
-                      x2={toX}
-                      y2={toY}
-                      stroke="#23e7b5"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                      markerEnd="url(#bestmove-arrowhead)"
-                      opacity="0.85"
-                    />
-                  </>
-                )
-              })()}
-            </svg>
-          )}
         </div>
+      </div>
+      <div className="board-panel-analysis">
+        <AnalysisPanel
+          embedded
+          fen={fen}
+          lines={engineLines}
+          bestMove={bestMove}
+          evaluation={evaluation}
+          isReady={isEngineReady}
+          engineError={engineError}
+        />
       </div>
       <div className="fen-display">
         <strong>FEN:</strong> {fen}
@@ -595,9 +646,6 @@ export default function BoardPanel({
       <div className="board-status">
         <span>
           Move {moveIndex} / {historyMoves.length}
-        </span>
-        <span>
-          Eval: {!isEngineReady ? 'Loading…' : evaluation?.score ?? evalLine?.score ?? '…'}
         </span>
       </div>
       <div className="opening-status">

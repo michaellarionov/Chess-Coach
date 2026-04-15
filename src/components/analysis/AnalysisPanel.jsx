@@ -1,24 +1,55 @@
+import { uciMoveToSan } from '../../utils/uciToSan.js'
 import './AnalysisPanel.css'
 
-export default function AnalysisPanel({ lines, bestMove, evaluation, isReady }) {
+export default function AnalysisPanel({
+  fen,
+  lines,
+  bestMove,
+  evaluation,
+  isReady,
+  engineError,
+  embedded = false,
+}) {
+  const bestSan =
+    fen && bestMove && bestMove.length >= 4
+      ? uciMoveToSan(fen, bestMove)
+      : bestMove || '…'
+
   return (
-    <div className="analysis-panel">
+    <div
+      className={
+        embedded ? 'analysis-panel analysis-panel--embedded' : 'analysis-panel'
+      }
+    >
       <h2>Engine Analysis</h2>
-      {!isReady && <p className="status">Loading Stockfish…</p>}
-      {isReady && lines.length === 0 && <p className="status">Analysing…</p>}
-      {isReady && (
-        <p className="status">
-          Best move: {bestMove || '...'} | Eval: {evaluation?.score || '...'}
-        </p>
-      )}
-      <ul className="lines">
-        {lines.map((line, i) => (
-          <li key={i} className="line">
-            <span className="score">{line.score}</span>
-            <span className="moves">{line.moves}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="analysis-panel__main">
+        <div className="analysis-panel__status">
+          {engineError && (
+            <p className="status status-error">
+              Stockfish failed: {engineError}
+            </p>
+          )}
+          {!engineError && !isReady && (
+            <p className="status">Loading Stockfish…</p>
+          )}
+          {!engineError && isReady && lines.length === 0 && (
+            <p className="status">Analysing…</p>
+          )}
+          {!engineError && isReady && (
+            <p className="status">
+              Best move: {bestSan} | Eval: {evaluation?.score || '...'}
+            </p>
+          )}
+        </div>
+        <ul className="lines">
+          {lines.map((line, i) => (
+            <li key={i} className="line">
+              <span className="score">{line.score}</span>
+              <span className="moves">{line.moves}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }
