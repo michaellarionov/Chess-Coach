@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "build:openings": "node scripts/build-openings-db.mjs",
     "postinstall": "node scripts/copy-public-assets.js"
   },
   "dependencies": {

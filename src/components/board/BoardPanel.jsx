@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess } from 'chess.js'
+import openingsByFen from '../../data/openingsByFen.json'
 import './BoardPanel.css'
 
 // chessboard.js and jQuery are loaded as globals via <script> tags in index.html
@@ -17,11 +18,44 @@ function scoreToWhiteFraction(score) {
   return Math.min(1, Math.max(0, normalized))
 }
 
+function normalizeFen(fen) {
+  return fen.split(' ').slice(0, 4).join(' ')
+}
+
+function getOpeningForFen(fen) {
+  const key = normalizeFen(fen)
+  return openingsByFen[key] || null
+}
+
+function analyzeOpeningTrail(moves) {
+  const game = new Chess()
+  const perPly = [getOpeningForFen(game.fen())]
+  let lastKnown = perPly[0]
+  let lastKnownPly = perPly[0] ? 0 : null
+  let theoryExitPly = null
+
+  for (let i = 0; i < moves.length; i += 1) {
+    game.move(moves[i])
+    const opening = getOpeningForFen(game.fen())
+    perPly.push(opening)
+
+    if (opening) {
+      lastKnown = opening
+      lastKnownPly = i + 1
+    } else if (theoryExitPly == null && perPly[i]) {
+      theoryExitPly = i + 1
+    }
+  }
+
+  return { perPly, lastKnown, lastKnownPly, theoryExitPly }
+}
+
 export default function BoardPanel({
   fen,
   onFenChange,
   onPgnChange,
   onMovePlayed,
+  onOpeningChange,
   externalPgnToLoad,
   externalPgnLoadId,
   evalLine,
@@ -40,6 +74,7 @@ export default function BoardPanel({
   const [moveIndex, setMoveIndex] = useState(0)
   const [pgnInput, setPgnInput] = useState('')
   const [pgnError, setPgnError] = useState('')
+  const [openingState, setOpeningState] = useState(() => analyzeOpeningTrail([]))
   const pendingGradeRef = useRef(null)
   const bestMoveRef = useRef(bestMove)
   const evaluationRef = useRef(evaluation)
@@ -69,6 +104,19 @@ export default function BoardPanel({
     setMoveIndex(nextMoveIndex)
     onFenChange(game.fen())
     onPgnChange(game.pgn())
+
+    const trail = analyzeOpeningTrail(moves)
+    setOpeningState(trail)
+    const currentOpening = trail.perPly[nextMoveIndex] || null
+    const theoryExited =
+      trail.theoryExitPly != null && nextMoveIndex >= trail.theoryExitPly
+    onOpeningChange?.({
+      currentOpening,
+      lastKnownOpening: trail.lastKnown,
+      theoryExitPly: trail.theoryExitPly,
+      theoryExited,
+      ply: nextMoveIndex,
+    })
   }
 
   const applyPgnToBoard = pgnText => {
@@ -205,7 +253,19 @@ export default function BoardPanel({
     return () => {
       boardInstanceRef.current?.destroy()
     }
-  }, [onFenChange, onPgnChange, onMovePlayed])
+  }, [onFenChange, onPgnChange, onMovePlayed, onOpeningChange])
+
+  useEffect(() => {
+    const trail = analyzeOpeningTrail(historyMovesRef.current)
+    const currentOpening = trail.perPly[moveIndexRef.current] || null
+    onOpeningChange?.({
+      currentOpening,
+      lastKnownOpening: trail.lastKnown,
+      theoryExitPly: trail.theoryExitPly,
+      theoryExited: false,
+      ply: moveIndexRef.current,
+    })
+  }, [onOpeningChange])
 
   const handleReset = () => {
     liveGameRef.current = new Chess()
@@ -218,6 +278,15 @@ export default function BoardPanel({
     pendingGradeRef.current = null
     setPgnInput('')
     setPgnError('')
+    const trail = analyzeOpeningTrail([])
+    setOpeningState(trail)
+    onOpeningChange?.({
+      currentOpening: trail.perPly[0] || null,
+      lastKnownOpening: trail.lastKnown,
+      theoryExitPly: trail.theoryExitPly,
+      theoryExited: false,
+      ply: 0,
+    })
     onFenChange(START_FEN)
     onPgnChange('')
   }
@@ -243,6 +312,10 @@ export default function BoardPanel({
     // Only react when a new external load id arrives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalPgnLoadId])
+
+  const currentOpening = openingState.perPly[moveIndex] || null
+  const theoryExited =
+    openingState.theoryExitPly != null && moveIndex >= openingState.theoryExitPly
 
   return (
     <div className="board-panel">
@@ -343,6 +416,21 @@ export default function BoardPanel({
         <span>
           Eval: {!isEngineReady ? 'Loading…' : evaluation?.score ?? evalLine?.score ?? '…'}
         </span>
+      </div>
+      <div className="opening-status">
+        <span>
+          Opening:{' '}
+          {currentOpening
+            ? `${currentOpening.eco} - ${currentOpening.name}`
+            : openingState.lastKnown
+              ? `${openingState.lastKnown.eco} - ${openingState.lastKnown.name}`
+              : 'Unknown'}
+        </span>
+        {theoryExited && (
+          <span className="theory-exit">
+            Out of theory at ply {openingState.theoryExitPly}
+          </span>
+        )}
       </div>
       <ul className="move-grade-list">
         {historyMoves.map((move, idx) => {

@@ -15,6 +15,7 @@ export default function App() {
   const [externalPgnToLoad, setExternalPgnToLoad] = useState('')
   const [externalPgnLoadId, setExternalPgnLoadId] = useState(0)
   const [lastMoveEvent, setLastMoveEvent] = useState(null)
+  const [openingContext, setOpeningContext] = useState(null)
   const [autoExplainContext, setAutoExplainContext] = useState(null)
   const { lines, isReady, bestMove, evaluation } = useStockfish(fen)
 
@@ -37,8 +38,11 @@ export default function App() {
       centipawnEval: evaluation.cp,
       evalText: evaluation.score || 'unknown',
       topLines: lines.map(line => line.moves),
+      opening: openingContext?.currentOpening || openingContext?.lastKnownOpening || null,
+      theoryExitPly: openingContext?.theoryExitPly ?? null,
+      theoryExited: openingContext?.theoryExited ?? false,
     })
-  }, [lastMoveEvent, fen, evaluation, bestMove, lines])
+  }, [lastMoveEvent, fen, evaluation, bestMove, lines, openingContext])
 
   return (
     <div className="app-layout">
@@ -52,6 +56,7 @@ export default function App() {
             onFenChange={setFen}
             onPgnChange={setPgn}
             onMovePlayed={setLastMoveEvent}
+            onOpeningChange={setOpeningContext}
             externalPgnToLoad={externalPgnToLoad}
             externalPgnLoadId={externalPgnLoadId}
             evalLine={lines[0]}
@@ -76,6 +81,7 @@ export default function App() {
             evaluation={evaluation}
             topLines={lines}
             autoExplainContext={autoExplainContext}
+            openingContext={openingContext}
           />
           <MLPanel fen={fen} pgn={pgn} />
         </div>

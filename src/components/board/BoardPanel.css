@@ -118,6 +118,21 @@
   color: #afafaf;
 }
 
+.opening-status {
+  width: 100%;
+  max-width: 512px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #bcd2ff;
+}
+
+.theory-exit {
+  color: #ffb86b;
+  font-weight: 600;
+}
+
 .move-grade-list {
   width: 100%;
   max-width: 512px;

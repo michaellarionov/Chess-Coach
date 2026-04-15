@@ -12,6 +12,9 @@ function makeSystemPrompt() {
 }
 
 function makeAutoExplainPrompt(context) {
+  const openingText = context.opening
+    ? `${context.opening.eco} - ${context.opening.name}`
+    : 'Unknown'
   return (
     `Explain this position in plain English after the move was played.\n` +
     `FEN: ${context.fen}\n` +
@@ -19,11 +22,15 @@ function makeAutoExplainPrompt(context) {
     `Stockfish best move: ${context.bestMove}\n` +
     `Centipawn evaluation (white perspective): ${context.centipawnEval}\n` +
     `Eval text: ${context.evalText}\n` +
-    `Top 3 lines: ${context.topLines.join(' | ')}`
+    `Top 3 lines: ${context.topLines.join(' | ')}\n` +
+    `Opening: ${openingText}\n` +
+    `Out of opening theory: ${context.theoryExited ? `yes (ply ${context.theoryExitPly})` : 'no'}`
   )
 }
 
 function makeFollowupPrompt(question, position) {
+  const opening = position.openingContext?.currentOpening || position.openingContext?.lastKnownOpening
+  const openingText = opening ? `${opening.eco} - ${opening.name}` : 'Unknown'
   return (
     `Question: ${question}\n\n` +
     `Current position context:\n` +
@@ -32,6 +39,8 @@ function makeFollowupPrompt(question, position) {
     `Centipawn evaluation: ${position.evaluation?.cp ?? 'unknown'}\n` +
     `Eval text: ${position.evaluation?.score ?? 'unknown'}\n` +
     `Top lines: ${(position.topLines || []).map(line => line.moves).join(' | ')}\n` +
+    `Opening: ${openingText}\n` +
+    `Out of opening theory: ${position.openingContext?.theoryExited ? `yes (ply ${position.openingContext.theoryExitPly})` : 'no'}\n` +
     `PGN: ${position.pgn || '(empty)'}`
   )
 }
@@ -43,6 +52,7 @@ export default function ChatPanel({
   evaluation,
   topLines,
   autoExplainContext,
+  openingContext,
 }) {
   const [messages, setMessages] = useState([
     { role: 'assistant', text: 'Hello! Share a position or game and I will help you analyse it.' },
@@ -130,7 +140,14 @@ export default function ChatPanel({
     const text = input.trim()
     if (!text || isSending) return
     setInput('')
-    const prompt = makeFollowupPrompt(text, { fen, pgn, bestMove, evaluation, topLines })
+    const prompt = makeFollowupPrompt(text, {
+      fen,
+      pgn,
+      bestMove,
+      evaluation,
+      topLines,
+      openingContext,
+    })
     void sendToClaude({ prompt, appendUserText: text })
   }
 
