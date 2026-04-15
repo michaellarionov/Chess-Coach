@@ -62,6 +62,30 @@ function getColorToMoveAtPly(ply) {
   return ply % 2 === 0 ? 'w' : 'b'
 }
 
+function getPieceDataUri(pieceCode) {
+  const map = {
+    wK: '♔',
+    wQ: '♕',
+    wR: '♖',
+    wB: '♗',
+    wN: '♘',
+    wP: '♙',
+    bK: '♚',
+    bQ: '♛',
+    bR: '♜',
+    bB: '♝',
+    bN: '♞',
+    bP: '♟',
+  }
+  const symbol = map[pieceCode] || '?'
+  const isWhite = pieceCode.startsWith('w')
+  const fill = isWhite ? '#f4f4f4' : '#222'
+  const text = isWhite ? '#111' : '#f2f2f2'
+  const stroke = isWhite ? '#8a8a8a' : '#9e9e9e'
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="36" fill="${fill}" stroke="${stroke}" stroke-width="2"/><text x="40" y="52" text-anchor="middle" font-family="Arial, sans-serif" font-size="44" fill="${text}">${symbol}</text></svg>`
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+}
+
 export default function BoardPanel({
   fen,
   onFenChange,
@@ -235,8 +259,9 @@ export default function BoardPanel({
     setHistoryMoves(moves)
     setMoveGrades(moves.map(() => null))
     historyMovesRef.current = moves
-    moveIndexRef.current = moves.length
-    updatePosition(moves.length, moves)
+    const initialPly = moves.length > 0 ? 1 : 0
+    moveIndexRef.current = initialPly
+    updatePosition(initialPly, moves)
     return true
   }
 
@@ -284,7 +309,9 @@ export default function BoardPanel({
     boardInstanceRef.current = Chessboard(boardRef.current, {
       draggable: true,
       position: 'start',
-      pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+      pieceTheme(pieceCode) {
+        return getPieceDataUri(pieceCode)
+      },
       onDragStart(_source, piece) {
         const game = liveGameRef.current
         const userColor = trainerConfig?.playerColor || 'w'
