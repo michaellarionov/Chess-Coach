@@ -14,8 +14,9 @@
 
 .board-wrap {
   position: relative;
-  width: 480px;
-  height: 480px;
+  width: fit-content;
+  height: fit-content;
+  max-width: 100%;
 }
 
 .bestmove-overlay {
@@ -26,7 +27,6 @@
 
 .eval-bar {
   width: 22px;
-  height: 480px;
   border: 2px solid #0f3460;
   border-radius: 4px;
   overflow: hidden;
@@ -88,6 +88,35 @@
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+@media (max-width: 900px) {
+  .board-panel {
+    align-items: stretch;
+  }
+
+  .board-stage {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 560px) {
+  .board-stage {
+    gap: 8px;
+  }
+
+  .eval-bar {
+    width: 16px;
+  }
+
+  .board-controls button {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
+
+  .move-grade-item {
+    font-size: 0.74rem;
+  }
 }
 
 .board-controls button {

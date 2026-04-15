@@ -79,6 +79,14 @@ export default function BoardPanel({
   evaluation,
   isEngineReady,
 }) {
+  const calcBoardSize = () => {
+    if (typeof window === 'undefined') return 480
+    const viewport = window.innerWidth
+    if (viewport <= 520) return Math.max(280, Math.min(360, viewport - 64))
+    if (viewport <= 900) return 420
+    return 480
+  }
+
   const boardRef = useRef(null)
   const boardInstanceRef = useRef(null)
   const liveGameRef = useRef(new Chess())
@@ -92,6 +100,7 @@ export default function BoardPanel({
   const [openingState, setOpeningState] = useState(() => analyzeOpeningTrail([]))
   const [trainerHintMove, setTrainerHintMove] = useState(null)
   const [trainerMessage, setTrainerMessage] = useState('')
+  const [boardSize, setBoardSize] = useState(calcBoardSize)
   const pendingGradeRef = useRef(null)
   const bestMoveRef = useRef(bestMove)
   const evaluationRef = useRef(evaluation)
@@ -108,6 +117,19 @@ export default function BoardPanel({
     evaluationRef.current = evaluation
     linesRef.current = engineLines
   }, [bestMove, evaluation, engineLines])
+
+  useEffect(() => {
+    const onResize = () => setBoardSize(calcBoardSize())
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (!boardInstanceRef.current) return
+    boardInstanceRef.current.resize?.()
+    boardInstanceRef.current.position?.(liveGameRef.current.fen())
+  }, [boardSize])
 
   const evalFraction = useMemo(
     () => scoreToWhiteFraction(evaluation?.score || evalLine?.score),
@@ -465,11 +487,12 @@ export default function BoardPanel({
   const theoryExited =
     openingState.theoryExitPly != null && moveIndex >= openingState.theoryExitPly
   const arrowMove = trainerHintMove || bestMove
+  const squareSize = boardSize / 8
 
   return (
     <div className="board-panel">
       <div className="board-stage">
-        <div className="eval-bar">
+        <div className="eval-bar" style={{ height: boardSize }}>
           <div
             className="eval-black"
             style={{ height: `${(1 - evalFraction) * 100}%` }}
@@ -480,9 +503,13 @@ export default function BoardPanel({
           />
         </div>
         <div className="board-wrap">
-          <div ref={boardRef} className="chessboard" style={{ width: 480 }} />
+          <div
+            ref={boardRef}
+            className="chessboard"
+            style={{ width: boardSize, height: boardSize }}
+          />
           {arrowMove && arrowMove.length >= 4 && (
-            <svg className="bestmove-overlay" viewBox="0 0 480 480">
+            <svg className="bestmove-overlay" viewBox={`0 0 ${boardSize} ${boardSize}`}>
               {(() => {
                 const files = 'abcdefgh'
                 const from = arrowMove.slice(0, 2)
@@ -499,10 +526,10 @@ export default function BoardPanel({
                 ) {
                   return null
                 }
-                const fromX = fromFile * 60 + 30
-                const fromY = (8 - fromRank) * 60 + 30
-                const toX = toFile * 60 + 30
-                const toY = (8 - toRank) * 60 + 30
+                const fromX = fromFile * squareSize + squareSize / 2
+                const fromY = (8 - fromRank) * squareSize + squareSize / 2
+                const toX = toFile * squareSize + squareSize / 2
+                const toY = (8 - toRank) * squareSize + squareSize / 2
                 return (
                   <>
                     <defs>
