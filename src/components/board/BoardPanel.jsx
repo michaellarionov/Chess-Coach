@@ -50,14 +50,29 @@ function analyzeOpeningTrail(moves) {
   return { perPly, lastKnown, lastKnownPly, theoryExitPly }
 }
 
+function pgnToUciMoves(pgn) {
+  const game = new Chess()
+  game.loadPgn(pgn)
+  return game
+    .history({ verbose: true })
+    .map(move => `${move.from}${move.to}${move.promotion || ''}`)
+}
+
+function getColorToMoveAtPly(ply) {
+  return ply % 2 === 0 ? 'w' : 'b'
+}
+
 export default function BoardPanel({
   fen,
   onFenChange,
   onPgnChange,
   onMovePlayed,
   onOpeningChange,
+  onTrainerFeedback,
+  onTrainerProgress,
   externalPgnToLoad,
   externalPgnLoadId,
+  trainerConfig,
   evalLine,
   engineLines,
   bestMove,
@@ -75,10 +90,18 @@ export default function BoardPanel({
   const [pgnInput, setPgnInput] = useState('')
   const [pgnError, setPgnError] = useState('')
   const [openingState, setOpeningState] = useState(() => analyzeOpeningTrail([]))
+  const [trainerHintMove, setTrainerHintMove] = useState(null)
+  const [trainerMessage, setTrainerMessage] = useState('')
   const pendingGradeRef = useRef(null)
   const bestMoveRef = useRef(bestMove)
   const evaluationRef = useRef(evaluation)
   const linesRef = useRef(engineLines)
+  const trainerLineMovesRef = useRef([])
+  const trainerRef = useRef({
+    started: false,
+    hadMistake: false,
+    complete: false,
+  })
 
   useEffect(() => {
     bestMoveRef.current = bestMove
@@ -90,6 +113,57 @@ export default function BoardPanel({
     () => scoreToWhiteFraction(evaluation?.score || evalLine?.score),
     [evaluation, evalLine],
   )
+  const trainerEnabled = Boolean(trainerConfig?.enabled && trainerConfig?.line)
+
+  const finishTrainerAttempt = success => {
+    if (!trainerEnabled || trainerRef.current.complete) return
+    trainerRef.current.complete = true
+    onTrainerProgress?.({
+      lineId: trainerConfig.line.id,
+      success,
+    })
+  }
+
+  const maybeAutoPlayTrainerOpponent = () => {
+    if (!trainerEnabled) return
+    const expectedMoves = trainerLineMovesRef.current
+    if (expectedMoves.length === 0) return
+
+    const game = liveGameRef.current
+    const nextHistory = [...historyMovesRef.current]
+    const userColor = trainerConfig.playerColor || 'w'
+
+    while (nextHistory.length < expectedMoves.length) {
+      const sideToMove = getColorToMoveAtPly(nextHistory.length)
+      if (sideToMove === userColor) break
+      const expectedUci = expectedMoves[nextHistory.length]
+      const move = game.move({
+        from: expectedUci.slice(0, 2),
+        to: expectedUci.slice(2, 4),
+        promotion: expectedUci.slice(4) || 'q',
+      })
+      if (!move) break
+      nextHistory.push(move)
+    }
+
+    if (nextHistory.length !== historyMovesRef.current.length) {
+      setHistoryMoves(nextHistory)
+      setMoveGrades(prev => {
+        const next = [...prev]
+        while (next.length < nextHistory.length) {
+          next.push(null)
+        }
+        return next
+      })
+      updatePosition(nextHistory.length, nextHistory)
+    }
+
+    if (nextHistory.length >= expectedMoves.length) {
+      setTrainerMessage('Line complete. Great job!')
+      setTrainerHintMove(null)
+      finishTrainerAttempt(!trainerRef.current.hadMistake)
+    }
+  }
 
   const updatePosition = (nextMoveIndex, moves = historyMoves) => {
     const game = new Chess()
@@ -191,10 +265,12 @@ export default function BoardPanel({
       pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
       onDragStart(_source, piece) {
         const game = liveGameRef.current
+        const userColor = trainerConfig?.playerColor || 'w'
         if (
           game.isGameOver() ||
           (game.turn() === 'w' && piece.startsWith('b')) ||
-          (game.turn() === 'b' && piece.startsWith('w'))
+          (game.turn() === 'b' && piece.startsWith('w')) ||
+          (trainerEnabled && game.turn() !== userColor)
         ) {
           return false
         }
@@ -205,6 +281,36 @@ export default function BoardPanel({
           const priorIndex = moveIndexRef.current
           const move = game.move({ from: source, to: target, promotion: 'q' })
           const moveUci = moveToUci(move)
+
+          if (trainerEnabled) {
+            if (!trainerRef.current.started) {
+              trainerRef.current = {
+                started: true,
+                hadMistake: false,
+                complete: false,
+              }
+            }
+            const expectedUci = trainerLineMovesRef.current[priorIndex]
+            if (expectedUci && moveUci !== expectedUci) {
+              game.undo()
+              trainerRef.current.hadMistake = true
+              setTrainerHintMove(expectedUci)
+              setTrainerMessage(
+                `Deviation at move ${Math.floor(priorIndex / 2) + 1}. Expected ${expectedUci}.`,
+              )
+              onTrainerFeedback?.({
+                id: `${trainerConfig?.line?.id || 'line'}-${priorIndex}-${moveUci}`,
+                fen: game.fen(),
+                playedMove: moveUci,
+                correctMove: expectedUci,
+                opening: trainerConfig?.line || null,
+              })
+              return 'snapback'
+            }
+            setTrainerHintMove(null)
+            setTrainerMessage('')
+          }
+
           const currentEval = evaluationRef.current
           const best = bestMoveRef.current
           const topPvs = (linesRef.current || []).map(line => line.pv)
@@ -239,6 +345,12 @@ export default function BoardPanel({
             moveUci,
             ply: nextHistory.length,
           })
+
+          if (trainerEnabled) {
+            setTimeout(() => {
+              maybeAutoPlayTrainerOpponent()
+            }, 120)
+          }
         } catch {
           return 'snapback'
         }
@@ -253,7 +365,15 @@ export default function BoardPanel({
     return () => {
       boardInstanceRef.current?.destroy()
     }
-  }, [onFenChange, onPgnChange, onMovePlayed, onOpeningChange])
+  }, [
+    onFenChange,
+    onPgnChange,
+    onMovePlayed,
+    onOpeningChange,
+    onTrainerFeedback,
+    trainerConfig,
+    trainerEnabled,
+  ])
 
   useEffect(() => {
     const trail = analyzeOpeningTrail(historyMovesRef.current)
@@ -313,9 +433,38 @@ export default function BoardPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalPgnLoadId])
 
+  useEffect(() => {
+    if (!trainerConfig?.sessionId) return
+    if (!trainerEnabled || !trainerConfig.line?.pgn) {
+      trainerLineMovesRef.current = []
+      trainerRef.current = { started: false, hadMistake: false, complete: false }
+      setTrainerHintMove(null)
+      setTrainerMessage('')
+      return
+    }
+
+    try {
+      trainerLineMovesRef.current = pgnToUciMoves(trainerConfig.line.pgn)
+      trainerRef.current = { started: true, hadMistake: false, complete: false }
+      setTrainerHintMove(null)
+      setTrainerMessage(
+        `Training: ${trainerConfig.line.eco} - ${trainerConfig.line.name}`,
+      )
+      handleReset()
+      setTimeout(() => {
+        maybeAutoPlayTrainerOpponent()
+      }, 100)
+    } catch {
+      trainerLineMovesRef.current = []
+      setTrainerMessage('Could not parse selected opening line.')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trainerConfig?.sessionId])
+
   const currentOpening = openingState.perPly[moveIndex] || null
   const theoryExited =
     openingState.theoryExitPly != null && moveIndex >= openingState.theoryExitPly
+  const arrowMove = trainerHintMove || bestMove
 
   return (
     <div className="board-panel">
@@ -332,12 +481,12 @@ export default function BoardPanel({
         </div>
         <div className="board-wrap">
           <div ref={boardRef} className="chessboard" style={{ width: 480 }} />
-          {bestMove && bestMove.length >= 4 && (
+          {arrowMove && arrowMove.length >= 4 && (
             <svg className="bestmove-overlay" viewBox="0 0 480 480">
               {(() => {
                 const files = 'abcdefgh'
-                const from = bestMove.slice(0, 2)
-                const to = bestMove.slice(2, 4)
+                const from = arrowMove.slice(0, 2)
+                const to = arrowMove.slice(2, 4)
                 const fromFile = files.indexOf(from[0])
                 const toFile = files.indexOf(to[0])
                 const fromRank = Number.parseInt(from[1], 10)
@@ -432,6 +581,7 @@ export default function BoardPanel({
           </span>
         )}
       </div>
+      {trainerMessage && <p className="trainer-message">{trainerMessage}</p>}
       <ul className="move-grade-list">
         {historyMoves.map((move, idx) => {
           const grade = moveGrades[idx]

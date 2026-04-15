@@ -133,6 +133,18 @@
   font-weight: 600;
 }
 
+.trainer-message {
+  margin: 0;
+  width: 100%;
+  max-width: 512px;
+  font-size: 0.8rem;
+  color: #ffd27a;
+  background: #1a1a2e;
+  border: 1px solid #59400d;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
 .move-grade-list {
   width: 100%;
   max-width: 512px;

@@ -24,7 +24,8 @@ function makeAutoExplainPrompt(context) {
     `Eval text: ${context.evalText}\n` +
     `Top 3 lines: ${context.topLines.join(' | ')}\n` +
     `Opening: ${openingText}\n` +
-    `Out of opening theory: ${context.theoryExited ? `yes (ply ${context.theoryExitPly})` : 'no'}`
+    `Out of opening theory: ${context.theoryExited ? `yes (ply ${context.theoryExitPly})` : 'no'}\n` +
+    `Weakness profile: ${context.weaknessSummary || 'none yet'}`
   )
 }
 
@@ -41,7 +42,22 @@ function makeFollowupPrompt(question, position) {
     `Top lines: ${(position.topLines || []).map(line => line.moves).join(' | ')}\n` +
     `Opening: ${openingText}\n` +
     `Out of opening theory: ${position.openingContext?.theoryExited ? `yes (ply ${position.openingContext.theoryExitPly})` : 'no'}\n` +
+    `Weakness profile: ${position.weaknessProfile?.summary || 'none yet'}\n` +
     `PGN: ${position.pgn || '(empty)'}`
+  )
+}
+
+function makeTrainerPrompt(context) {
+  const openingText = context.opening
+    ? `${context.opening.eco} - ${context.opening.name}`
+    : 'Unknown line'
+  return (
+    `Opening trainer correction request.\n` +
+    `Opening line: ${openingText}\n` +
+    `FEN: ${context.fen}\n` +
+    `Played move: ${context.playedMove}\n` +
+    `Theoretical move: ${context.correctMove}\n` +
+    `Explain clearly why the theoretical move is preferred in this line and give one memory tip.`
   )
 }
 
@@ -53,6 +69,8 @@ export default function ChatPanel({
   topLines,
   autoExplainContext,
   openingContext,
+  weaknessProfile,
+  trainerFeedbackContext,
 }) {
   const [messages, setMessages] = useState([
     { role: 'assistant', text: 'Hello! Share a position or game and I will help you analyse it.' },
@@ -61,6 +79,7 @@ export default function ChatPanel({
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState('')
   const lastAutoIdRef = useRef(null)
+  const lastTrainerIdRef = useRef(null)
 
   const callClaude = async (userPrompt, history) => {
     const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
@@ -136,6 +155,17 @@ export default function ChatPanel({
     })
   }, [autoExplainContext]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!trainerFeedbackContext?.id) return
+    if (lastTrainerIdRef.current === trainerFeedbackContext.id) return
+    lastTrainerIdRef.current = trainerFeedbackContext.id
+
+    void sendToClaude({
+      prompt: makeTrainerPrompt(trainerFeedbackContext),
+      appendUserText: `Trainer mistake: played ${trainerFeedbackContext.playedMove}, expected ${trainerFeedbackContext.correctMove}`,
+    })
+  }, [trainerFeedbackContext]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const send = () => {
     const text = input.trim()
     if (!text || isSending) return
@@ -147,6 +177,7 @@ export default function ChatPanel({
       evaluation,
       topLines,
       openingContext,
+      weaknessProfile,
     })
     void sendToClaude({ prompt, appendUserText: text })
   }

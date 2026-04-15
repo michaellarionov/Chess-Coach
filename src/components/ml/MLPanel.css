@@ -18,3 +18,72 @@
   font-size: 0.85rem;
   color: #888;
 }
+
+.ml-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.ml-controls input {
+  flex: 1;
+  background: #0f1f3d;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  color: #e0e0e0;
+  padding: 6px 10px;
+  font-size: 0.875rem;
+}
+
+.ml-controls button {
+  padding: 6px 12px;
+  background: #1a6aa8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.ml-controls button:disabled,
+.ml-controls input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.ml-status {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  color: #aeb9d1;
+}
+
+.ml-summary {
+  margin: 10px 0 0;
+  font-size: 0.84rem;
+  color: #e6f1ff;
+}
+
+.ml-meta {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  color: #8fa7cc;
+}
+
+.weakness-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.weakness-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+  background: #1a1a2e;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  padding: 6px 8px;
+}

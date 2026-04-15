@@ -4,6 +4,7 @@ import AnalysisPanel from './components/analysis/AnalysisPanel.jsx'
 import ChatPanel from './components/chat/ChatPanel.jsx'
 import MLPanel from './components/ml/MLPanel.jsx'
 import GameImportPanel from './components/import/GameImportPanel.jsx'
+import OpeningTrainerPanel from './components/trainer/OpeningTrainerPanel.jsx'
 import useStockfish from './hooks/useStockfish.js'
 import './App.css'
 
@@ -16,12 +17,44 @@ export default function App() {
   const [externalPgnLoadId, setExternalPgnLoadId] = useState(0)
   const [lastMoveEvent, setLastMoveEvent] = useState(null)
   const [openingContext, setOpeningContext] = useState(null)
+  const [weaknessProfile, setWeaknessProfile] = useState(null)
+  const [trainerConfig, setTrainerConfig] = useState({
+    enabled: false,
+    playerColor: 'w',
+    line: null,
+    sessionId: 0,
+  })
+  const [trainerProgressByLine, setTrainerProgressByLine] = useState(() => {
+    try {
+      const raw = localStorage.getItem('openingTrainerProgress')
+      return raw ? JSON.parse(raw) : {}
+    } catch {
+      return {}
+    }
+  })
+  const [trainerFeedbackContext, setTrainerFeedbackContext] = useState(null)
   const [autoExplainContext, setAutoExplainContext] = useState(null)
   const { lines, isReady, bestMove, evaluation } = useStockfish(fen)
 
   const handleLoadImportedGame = gamePgn => {
     setExternalPgnToLoad(gamePgn)
     setExternalPgnLoadId(prev => prev + 1)
+  }
+
+  const handleTrainerProgress = ({ lineId, success }) => {
+    if (!lineId) return
+    setTrainerProgressByLine(prev => {
+      const current = prev[lineId] || { attempts: 0, successes: 0 }
+      const next = {
+        ...prev,
+        [lineId]: {
+          attempts: current.attempts + 1,
+          successes: current.successes + (success ? 1 : 0),
+        },
+      }
+      localStorage.setItem('openingTrainerProgress', JSON.stringify(next))
+      return next
+    })
   }
 
   useEffect(() => {
@@ -41,8 +74,10 @@ export default function App() {
       opening: openingContext?.currentOpening || openingContext?.lastKnownOpening || null,
       theoryExitPly: openingContext?.theoryExitPly ?? null,
       theoryExited: openingContext?.theoryExited ?? false,
+      weaknessProfile,
+      weaknessSummary: weaknessProfile?.summary || null,
     })
-  }, [lastMoveEvent, fen, evaluation, bestMove, lines, openingContext])
+  }, [lastMoveEvent, fen, evaluation, bestMove, lines, openingContext, weaknessProfile])
 
   return (
     <div className="app-layout">
@@ -57,8 +92,11 @@ export default function App() {
             onPgnChange={setPgn}
             onMovePlayed={setLastMoveEvent}
             onOpeningChange={setOpeningContext}
+            onTrainerFeedback={setTrainerFeedbackContext}
+            onTrainerProgress={handleTrainerProgress}
             externalPgnToLoad={externalPgnToLoad}
             externalPgnLoadId={externalPgnLoadId}
+            trainerConfig={trainerConfig}
             evalLine={lines[0]}
             engineLines={lines}
             bestMove={bestMove}
@@ -67,6 +105,11 @@ export default function App() {
           />
         </div>
         <div className="right-panel">
+          <OpeningTrainerPanel
+            trainerConfig={trainerConfig}
+            progressByLine={trainerProgressByLine}
+            onTrainerConfigChange={setTrainerConfig}
+          />
           <GameImportPanel onLoadGame={handleLoadImportedGame} />
           <AnalysisPanel
             lines={lines}
@@ -82,8 +125,10 @@ export default function App() {
             topLines={lines}
             autoExplainContext={autoExplainContext}
             openingContext={openingContext}
+            weaknessProfile={weaknessProfile}
+            trainerFeedbackContext={trainerFeedbackContext}
           />
-          <MLPanel fen={fen} pgn={pgn} />
+          <MLPanel onProfileChange={setWeaknessProfile} />
         </div>
       </main>
     </div>
