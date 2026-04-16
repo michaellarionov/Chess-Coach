@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import './ChatPanel.css'
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
+const ANTHROPIC_API_URL = import.meta.env.DEV
+  ? '/api/anthropic/messages'
+  : 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-3-5-sonnet-latest'
 
 function makeSystemPrompt() {

@@ -69,6 +69,16 @@ export default function AppHeaderMenu({ onNavigate }) {
               Weakness Profile
             </button>
           </li>
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              className="app-header-menu__item"
+              onClick={() => pick('endgame-practice')}
+            >
+              Endgame Practice
+            </button>
+          </li>
         </ul>
       )}
     </div>

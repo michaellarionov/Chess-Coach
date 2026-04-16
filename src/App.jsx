@@ -6,6 +6,7 @@ import ChatPanel from './components/chat/ChatPanel.jsx'
 import MLPanel from './components/ml/MLPanel.jsx'
 import GameImportPanel from './components/import/GameImportPanel.jsx'
 import OpeningTrainerPanel from './components/trainer/OpeningTrainerPanel.jsx'
+import EndgamePracticePage from './components/endgame/EndgamePracticePage.jsx'
 import SettingsPage from './components/settings/SettingsPage.jsx'
 import AppHeaderMenu from './components/layout/AppHeaderMenu.jsx'
 import useStockfish from './hooks/useStockfish.js'
@@ -16,6 +17,7 @@ const VIEWS = {
   coach: 'coach',
   openingTrainer: 'opening-trainer',
   weaknessProfile: 'weakness-profile',
+  endgamePractice: 'endgame-practice',
   settings: 'settings',
 }
 
@@ -104,6 +106,7 @@ export default function App() {
     activeView === VIEWS.account ||
     activeView === VIEWS.openingTrainer ||
     activeView === VIEWS.weaknessProfile ||
+    activeView === VIEWS.endgamePractice ||
     activeView === VIEWS.settings
 
   return (
@@ -151,6 +154,8 @@ export default function App() {
           <div className="app-page">
             <MLPanel onProfileChange={setWeaknessProfile} />
           </div>
+        ) : activeView === VIEWS.endgamePractice ? (
+          <EndgamePracticePage />
         ) : activeView === VIEWS.settings ? (
           <SettingsPage />
         ) : (
