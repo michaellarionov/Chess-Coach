@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import './ChatPanel.css'
 
-const MODEL = 'claude-3-5-sonnet-latest'
+const MODEL = 'claude-sonnet-4-6'
 
 function getApiUrl() {
   const base = import.meta.env.VITE_API_BASE_URL?.trim()
@@ -80,41 +82,131 @@ export default function ChatPanel({
   trainerFeedbackContext,
 }) {
   const [messages, setMessages] = useState([
-    { role: 'assistant', text: 'Hello! Share a position or game and I will help you analyse it.' },
+    {
+      id: 'welcome',
+      role: 'assistant',
+      text: 'Hello! Share a position or game and I will help you analyse it.',
+    },
   ])
   const [input, setInput] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState('')
   const lastAutoIdRef = useRef(null)
   const lastTrainerIdRef = useRef(null)
+  const messagesRef = useRef(null)
+  const bottomRef = useRef(null)
+  const shouldAutoScrollRef = useRef(true)
 
-  const callClaude = async (userPrompt, history) => {
-    const response = await fetch(ANTHROPIC_API_URL, {
+  const newId = () =>
+    (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+  const messagesDigest = useMemo(
+    () => messages.map(m => `${m.id}:${m.text.length}`).join('|'),
+    [messages],
+  )
+
+  const scrollToBottom = (behavior = 'auto') => {
+    const el = bottomRef.current
+    if (!el) return
+    el.scrollIntoView({ block: 'end', behavior })
+  }
+
+  const onMessagesScroll = () => {
+    const el = messagesRef.current
+    if (!el) return
+    const thresholdPx = 28
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    shouldAutoScrollRef.current = distanceFromBottom <= thresholdPx
+  }
+
+  useEffect(() => {
+    if (shouldAutoScrollRef.current) {
+      scrollToBottom('auto')
+    }
+  }, [messagesDigest])
+
+  const buildPayload = (userPrompt, history) => ({
+    model: MODEL,
+    max_tokens: 500,
+    system: makeSystemPrompt(),
+    messages: [
+      ...history.map(msg => ({
+        role: msg.role,
+        content: [{ type: 'text', text: msg.text }],
+      })),
+      { role: 'user', content: [{ type: 'text', text: userPrompt }] },
+    ],
+  })
+
+  async function callClaudeStream({ userPrompt, history, onText }) {
+    const response = await fetch(`${ANTHROPIC_API_URL}?stream=1`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
       },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 500,
-        system: makeSystemPrompt(),
-        messages: [
-          ...history.map(msg => ({
-            role: msg.role,
-            content: [{ type: 'text', text: msg.text }],
-          })),
-          { role: 'user', content: [{ type: 'text', text: userPrompt }] },
-        ],
-      }),
+      body: JSON.stringify(buildPayload(userPrompt, history)),
     })
 
-    if (!response.ok) {
+    if (!response.ok || !response.body) {
       const details = await response.text()
       throw new Error(`Claude API error (${response.status}): ${details}`)
     }
 
-    const json = await response.json()
-    return json.content?.[0]?.text || 'No response from Claude.'
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let out = ''
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      const events = buffer.split('\n\n')
+      buffer = events.pop() || ''
+
+      for (const evt of events) {
+        // Parse minimal SSE: we only care about `data:` lines.
+        const dataLines = evt
+          .split('\n')
+          .filter(l => l.startsWith('data:'))
+          .map(l => l.replace(/^data:\s?/, ''))
+          .join('\n')
+
+        if (!dataLines) continue
+        if (dataLines === '[DONE]') continue
+
+        let json
+        try {
+          json = JSON.parse(dataLines)
+        } catch {
+          continue
+        }
+
+        if (json?.type === 'content_block_delta' && json?.delta?.type === 'text_delta') {
+          const chunk = json.delta.text || ''
+          if (chunk) {
+            out += chunk
+            onText(out)
+          }
+        }
+
+        if (json?.type === 'message_stop') {
+          return out || 'No response from Claude.'
+        }
+
+        if (json?.type === 'error' || json?.error) {
+          throw new Error(
+            `Claude stream error: ${json?.error?.message || json?.message || 'unknown'}`,
+          )
+        }
+      }
+    }
+
+    return out || 'No response from Claude.'
   }
 
   const sendToClaude = async ({ prompt, appendUserText }) => {
@@ -122,18 +214,47 @@ export default function ChatPanel({
     setIsSending(true)
 
     const history = messages.filter(m => m.role === 'user' || m.role === 'assistant')
+    const assistantId = newId()
     if (appendUserText) {
-      setMessages(prev => [...prev, { role: 'user', text: appendUserText }])
+      setMessages(prev => [...prev, { id: newId(), role: 'user', text: appendUserText }])
     }
 
     try {
-      const answer = await callClaude(prompt, history)
-      setMessages(prev => [...prev, { role: 'assistant', text: answer }])
+      // If user is currently at the bottom, keep following the stream.
+      // If they've scrolled up, don't force-jump.
+      onMessagesScroll()
+
+      setMessages(prev => {
+        return [...prev, { id: assistantId, role: 'assistant', text: '' }]
+      })
+
+      const answer = await callClaudeStream({
+        userPrompt: prompt,
+        history,
+        onText: text => {
+          setMessages(prev => {
+            const idx = prev.findIndex(m => m.id === assistantId)
+            if (idx < 0) return prev
+            const next = [...prev]
+            next[idx] = { ...next[idx], text }
+            return next
+          })
+        },
+      })
+
+      setMessages(prev => {
+        const idx = prev.findIndex(m => m.id === assistantId)
+        if (idx < 0) return prev
+        const next = [...prev]
+        next[idx] = { ...next[idx], text: answer }
+        return next
+      })
     } catch (err) {
       setError(err.message || 'Failed to call Claude API.')
       setMessages(prev => [
         ...prev,
         {
+          id: newId(),
           role: 'assistant',
           text: 'I could not reach Claude right now. Please check API key/configuration and try again.',
         },
@@ -192,12 +313,21 @@ export default function ChatPanel({
   return (
     <div className="chat-panel">
       <h2>Coach Chat</h2>
-      <div className="messages">
+      <div className="messages" ref={messagesRef} onScroll={onMessagesScroll}>
         {messages.map((m, i) => (
-          <div key={i} className={`message ${m.role}`}>
-            <span className="bubble">{m.text}</span>
+          <div key={m.id || i} className={`message ${m.role}`}>
+            <span className="bubble">
+              {m.role === 'assistant' ? (
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {m.text}
+                </ReactMarkdown>
+              ) : (
+                m.text
+              )}
+            </span>
           </div>
         ))}
+        <div ref={bottomRef} />
       </div>
       <div className="chat-input-row">
         <textarea

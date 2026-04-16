@@ -39,6 +39,7 @@
   font-size: 0.875rem;
   max-width: 85%;
   line-height: 1.4;
+  word-break: break-word;
 }
 
 .message.assistant .bubble {
@@ -49,6 +50,84 @@
 .message.user .bubble {
   background: #1a6aa8;
   color: #fff;
+}
+
+/* Markdown formatting inside assistant bubbles */
+.message.assistant .bubble :where(p) {
+  margin: 0.35rem 0;
+}
+
+.message.assistant .bubble :where(p:first-child) {
+  margin-top: 0;
+}
+
+.message.assistant .bubble :where(p:last-child) {
+  margin-bottom: 0;
+}
+
+.message.assistant .bubble :where(ul, ol) {
+  margin: 0.35rem 0 0.35rem 1.1rem;
+  padding: 0;
+}
+
+.message.assistant .bubble :where(li) {
+  margin: 0.15rem 0;
+}
+
+.message.assistant .bubble :where(h1, h2, h3, h4) {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.message.assistant .bubble :where(pre) {
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.7rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  overflow: auto;
+}
+
+.message.assistant .bubble :where(code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+  font-size: 0.83em;
+}
+
+.message.assistant .bubble :where(pre code) {
+  font-size: 0.82rem;
+}
+
+.message.assistant .bubble :where(a) {
+  color: #7ecfff;
+  text-decoration: underline;
+}
+
+.message.assistant .bubble :where(blockquote) {
+  margin: 0.4rem 0;
+  padding-left: 0.75rem;
+  border-left: 3px solid rgba(126, 207, 255, 0.5);
+  color: rgba(224, 224, 224, 0.9);
+}
+
+.message.assistant .bubble :where(table) {
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.message.assistant .bubble :where(th, td) {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 0.3rem 0.4rem;
+  vertical-align: top;
+}
+
+.message.assistant .bubble :where(hr) {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  margin: 0.6rem 0;
 }
 
 .chat-input-row {
