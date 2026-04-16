@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import './ChatPanel.css'
 
-const ANTHROPIC_API_URL = import.meta.env.DEV
-  ? '/api/anthropic/messages'
-  : 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-3-5-sonnet-latest'
+
+function getApiUrl() {
+  const base = import.meta.env.VITE_API_BASE_URL?.trim()
+  if (!base) return '/api/anthropic/messages'
+  return `${base.replace(/\/+$/, '')}/api/anthropic/messages`
+}
+
+const ANTHROPIC_API_URL = getApiUrl()
 
 function makeSystemPrompt() {
   return (
@@ -84,17 +89,10 @@ export default function ChatPanel({
   const lastTrainerIdRef = useRef(null)
 
   const callClaude = async (userPrompt, history) => {
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-    if (!apiKey) {
-      throw new Error('Missing VITE_ANTHROPIC_API_KEY. Add it to your .env file.')
-    }
-
     const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model: MODEL,
