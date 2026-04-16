@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chess } from 'chess.js'
 import openingsByFen from '../../data/openingsByFen.json'
-import AnalysisPanel from '../analysis/AnalysisPanel.jsx'
 import './BoardPanel.css'
 
 // chessboard.js and jQuery are loaded as globals via <script> tags in index.html
@@ -140,11 +139,20 @@ function getChessComPieceUrl(pieceCode) {
   return `https://images.chesscomfiles.com/chess-themes/pieces/neo/150/${pieceCode.toLowerCase()}.png`
 }
 
+function parsePgnResult(pgnText) {
+  const match = pgnText.match(/\[Result "([^"]+)"\]/)
+  const result = match?.[1]
+  return result === '1-0' || result === '0-1' || result === '1/2-1/2'
+    ? result
+    : null
+}
+
 export default function BoardPanel({
-  fen,
   onFenChange,
   onPgnChange,
   onMovePlayed,
+  onNavigationStateChange,
+  onUserStartedPlaying,
   onOpeningChange,
   onTrainerFeedback,
   onTrainerProgress,
@@ -175,9 +183,7 @@ export default function BoardPanel({
   const [historyMoves, setHistoryMoves] = useState([])
   const [moveGrades, setMoveGrades] = useState([])
   const [moveIndex, setMoveIndex] = useState(0)
-  const [pgnInput, setPgnInput] = useState('')
-  const [pgnError, setPgnError] = useState('')
-  const [openingState, setOpeningState] = useState(() => analyzeOpeningTrail([]))
+  const [loadedResultTag, setLoadedResultTag] = useState(null)
   const [trainerHintMove, setTrainerHintMove] = useState(null)
   const [trainerMessage, setTrainerMessage] = useState('')
   const [boardSize, setBoardSize] = useState(calcBoardSize)
@@ -211,13 +217,36 @@ export default function BoardPanel({
     boardInstanceRef.current.position?.(liveGameRef.current.fen())
   }, [boardSize])
 
+  const gameOutcome = useMemo(() => {
+    const game = liveGameRef.current
+    if (!game) return null
+
+    if (
+      moveIndex === historyMoves.length &&
+      (loadedResultTag === '1-0' ||
+        loadedResultTag === '0-1' ||
+        loadedResultTag === '1/2-1/2')
+    ) {
+      return loadedResultTag
+    }
+
+    if (!game.isGameOver()) return null
+    if (game.isDraw()) return '1/2-1/2'
+    if (game.isCheckmate()) return game.turn() === 'w' ? '0-1' : '1-0'
+    return null
+  }, [moveIndex, historyMoves.length, loadedResultTag])
+
   const evalFraction = useMemo(() => {
+    if (gameOutcome === '1-0') return 1
+    if (gameOutcome === '0-1') return 0
+    if (gameOutcome === '1/2-1/2') return 0.5
+
     if (evaluation && (evaluation.cp != null || evaluation.mate != null)) {
       const fromEngine = engineScoreToBarFraction(evaluation)
       if (fromEngine != null) return fromEngine
     }
     return scoreToWhiteFraction(evaluation?.score || evalLine?.score)
-  }, [evaluation, evalLine])
+  }, [evaluation, evalLine, gameOutcome])
   const trainerEnabled = Boolean(
     trainerActive && trainerConfig?.enabled && trainerConfig?.line,
   )
@@ -287,7 +316,6 @@ export default function BoardPanel({
     onPgnChange(game.pgn())
 
     const trail = analyzeOpeningTrail(moves)
-    setOpeningState(trail)
     const currentOpening = trail.perPly[nextMoveIndex] || null
     const theoryExited =
       trail.theoryExitPly != null && nextMoveIndex >= trail.theoryExitPly
@@ -297,6 +325,16 @@ export default function BoardPanel({
       theoryExitPly: trail.theoryExitPly,
       theoryExited,
       ply: nextMoveIndex,
+    })
+    onNavigationStateChange?.({
+      moveIndex: nextMoveIndex,
+      totalMoves: moves.length,
+      opening: currentOpening
+        ? `${currentOpening.eco} - ${currentOpening.name}`
+        : trail.lastKnown
+          ? `${trail.lastKnown.eco} - ${trail.lastKnown.name}`
+          : 'Unknown',
+      theoryExitPly: theoryExited ? trail.theoryExitPly : null,
     })
   }
 
@@ -311,12 +349,11 @@ export default function BoardPanel({
     try {
       game.loadPgn(trimmed)
     } catch {
-      setPgnError('Invalid PGN. Please check the notation and try again.')
       return false
     }
 
     const moves = game.history({ verbose: true })
-    setPgnError('')
+    setLoadedResultTag(parsePgnResult(trimmed))
     setHistoryMoves(moves)
     setMoveGrades(moves.map(() => null))
     historyMovesRef.current = moves
@@ -439,6 +476,7 @@ export default function BoardPanel({
 
           const nextHistory = historyMovesRef.current.slice(0, priorIndex)
           nextHistory.push(move)
+          setLoadedResultTag(null)
           historyMovesRef.current = nextHistory
           moveIndexRef.current = nextHistory.length
           setHistoryMoves(nextHistory)
@@ -448,6 +486,21 @@ export default function BoardPanel({
             return next
           })
           setMoveIndex(nextHistory.length)
+          const trail = analyzeOpeningTrail(nextHistory)
+          const currentOpening = trail.perPly[nextHistory.length] || null
+          const theoryExited =
+            trail.theoryExitPly != null && nextHistory.length >= trail.theoryExitPly
+          onNavigationStateChange?.({
+            moveIndex: nextHistory.length,
+            totalMoves: nextHistory.length,
+            opening: currentOpening
+              ? `${currentOpening.eco} - ${currentOpening.name}`
+              : trail.lastKnown
+                ? `${trail.lastKnown.eco} - ${trail.lastKnown.name}`
+                : 'Unknown',
+            theoryExitPly: theoryExited ? trail.theoryExitPly : null,
+          })
+          onUserStartedPlaying?.()
           onMovePlayed?.({
             fen: game.fen(),
             moveSan: move.san,
@@ -478,6 +531,7 @@ export default function BoardPanel({
     onFenChange,
     onPgnChange,
     onMovePlayed,
+  onNavigationStateChange,
     onOpeningChange,
     onTrainerFeedback,
     trainerConfig,
@@ -494,7 +548,17 @@ export default function BoardPanel({
       theoryExited: false,
       ply: moveIndexRef.current,
     })
-  }, [onOpeningChange])
+    onNavigationStateChange?.({
+      moveIndex: moveIndexRef.current,
+      totalMoves: historyMovesRef.current.length,
+      opening: currentOpening
+        ? `${currentOpening.eco} - ${currentOpening.name}`
+        : trail.lastKnown
+          ? `${trail.lastKnown.eco} - ${trail.lastKnown.name}`
+          : 'Unknown',
+      theoryExitPly: null,
+    })
+  }, [onOpeningChange, onNavigationStateChange])
 
   const handleReset = () => {
     liveGameRef.current = new Chess()
@@ -502,13 +566,11 @@ export default function BoardPanel({
     setHistoryMoves([])
     setMoveIndex(0)
     setMoveGrades([])
+    setLoadedResultTag(null)
     historyMovesRef.current = []
     moveIndexRef.current = 0
     pendingGradeRef.current = null
-    setPgnInput('')
-    setPgnError('')
     const trail = analyzeOpeningTrail([])
-    setOpeningState(trail)
     onOpeningChange?.({
       currentOpening: trail.perPly[0] || null,
       lastKnownOpening: trail.lastKnown,
@@ -518,10 +580,6 @@ export default function BoardPanel({
     })
     onFenChange(START_FEN)
     onPgnChange('')
-  }
-
-  const handleLoadPgn = () => {
-    applyPgnToBoard(pgnInput)
   }
 
   const handleStepBack = () => {
@@ -534,9 +592,18 @@ export default function BoardPanel({
     updatePosition(moveIndex + 1)
   }
 
+  const handleJumpStart = () => {
+    if (moveIndex === 0) return
+    updatePosition(0)
+  }
+
+  const handleJumpEnd = () => {
+    if (moveIndex >= historyMoves.length) return
+    updatePosition(historyMoves.length)
+  }
+
   useEffect(() => {
     if (!externalPgnLoadId || !externalPgnToLoad) return
-    setPgnInput(externalPgnToLoad)
     applyPgnToBoard(externalPgnToLoad)
     // Only react when a new external load id arrives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -579,15 +646,22 @@ export default function BoardPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trainerConfig?.sessionId, trainerActive, trainerEnabled, trainerConfig?.line?.pgn])
 
-  const currentOpening = openingState.perPly[moveIndex] || null
-  const theoryExited =
-    openingState.theoryExitPly != null && moveIndex >= openingState.theoryExitPly
-
   const evalBarLabel =
-    !engineError && isEngineReady
-      ? formatEvalBarLabel(evaluation, evalLine)
-      : null
-  const evalAdv = evalWhiteAdvantageSign(evaluation, evalLine)
+    gameOutcome === '1-0'
+      ? '1-0'
+      : gameOutcome === '0-1'
+        ? '0-1'
+        : gameOutcome === '1/2-1/2'
+          ? '0.00'
+          : !engineError && isEngineReady
+            ? formatEvalBarLabel(evaluation, evalLine)
+            : null
+  const evalAdv =
+    gameOutcome === '0-1'
+      ? -1
+      : gameOutcome === '1-0' || gameOutcome === '1/2-1/2'
+        ? 1
+        : evalWhiteAdvantageSign(evaluation, evalLine)
 
   return (
     <div className="board-panel">
@@ -621,55 +695,26 @@ export default function BoardPanel({
         </div>
       </div>
       <div className="board-panel-analysis">
-        <AnalysisPanel
-          embedded
-          lines={engineLines}
-          isReady={isEngineReady}
-          engineError={engineError}
-        />
-      </div>
-      <div className="fen-display">
-        <strong>FEN:</strong> {fen}
-      </div>
-      <textarea
-        className="pgn-input"
-        placeholder="Paste PGN here..."
-        value={pgnInput}
-        onChange={e => setPgnInput(e.target.value)}
-      />
-      {pgnError && <p className="pgn-error">{pgnError}</p>}
-      <div className="board-controls">
-        <button onClick={handleLoadPgn}>Load PGN</button>
-        <button onClick={handleStepBack} disabled={moveIndex === 0}>
-          ◀ Back
-        </button>
-        <button
-          onClick={handleStepForward}
-          disabled={moveIndex === historyMoves.length}
-        >
-          Forward ▶
-        </button>
-        <button onClick={handleReset}>Reset</button>
-      </div>
-      <div className="board-status">
-        <span>
-          Move {moveIndex} / {historyMoves.length}
-        </span>
-      </div>
-      <div className="opening-status">
-        <span>
-          Opening:{' '}
-          {currentOpening
-            ? `${currentOpening.eco} - ${currentOpening.name}`
-            : openingState.lastKnown
-              ? `${openingState.lastKnown.eco} - ${openingState.lastKnown.name}`
-              : 'Unknown'}
-        </span>
-        {theoryExited && (
-          <span className="theory-exit">
-            Out of theory at ply {openingState.theoryExitPly}
-          </span>
-        )}
+        <div className="board-nav-controls">
+          <button onClick={handleJumpStart} disabled={moveIndex === 0}>
+            {'<<'}
+          </button>
+          <button onClick={handleStepBack} disabled={moveIndex === 0}>
+            {'<'}
+          </button>
+          <button
+            onClick={handleStepForward}
+            disabled={moveIndex === historyMoves.length}
+          >
+            {'>'}
+          </button>
+          <button
+            onClick={handleJumpEnd}
+            disabled={moveIndex === historyMoves.length}
+          >
+            {'>>'}
+          </button>
+        </div>
       </div>
       {trainerMessage && <p className="trainer-message">{trainerMessage}</p>}
       <ul className="move-grade-list">

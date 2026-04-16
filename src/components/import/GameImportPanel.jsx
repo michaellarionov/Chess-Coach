@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Chess } from 'chess.js'
 import './GameImportPanel.css'
 
 function getRecentYearMonths(count) {
@@ -36,8 +37,10 @@ function summarizeGame(game, username) {
   }
 }
 
-export default function GameImportPanel({ onLoadGame }) {
+export default function GameImportPanel({ onLoadGame, onEngage }) {
+  const [activeOption, setActiveOption] = useState('')
   const [username, setUsername] = useState('')
+  const [pgnInput, setPgnInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [games, setGames] = useState([])
@@ -84,38 +87,138 @@ export default function GameImportPanel({ onLoadGame }) {
   }
 
   const handleLoad = game => {
+    const testGame = new Chess()
+    try {
+      testGame.loadPgn(game.pgn || '')
+    } catch {
+      setError('Selected game PGN is invalid.')
+      return
+    }
+    if (testGame.history().length === 0) {
+      setError('Selected game PGN is invalid.')
+      return
+    }
+    setError('')
     onLoadGame?.(game.pgn)
+    onEngage?.()
+  }
+
+  const handleLoadPgn = () => {
+    const trimmed = pgnInput.trim()
+    if (!trimmed) {
+      setError('Paste a PGN before loading.')
+      return
+    }
+    const testGame = new Chess()
+    try {
+      testGame.loadPgn(trimmed)
+    } catch {
+      setError('Invalid PGN. Please paste a complete game.')
+      return
+    }
+    if (testGame.history().length === 0) {
+      setError('Invalid PGN. Please paste a complete game.')
+      return
+    }
+    setError('')
+    onLoadGame?.(trimmed)
+    onEngage?.()
   }
 
   return (
     <div className="game-import-panel">
-      <h2>Import Chess.com Game</h2>
-      <div className="import-controls">
-        <input
-          value={username}
-          onChange={e => setUsername(e.target.value)}
-          placeholder="Chess.com username"
-        />
-        <button onClick={fetchRecentGames} disabled={isLoading || !username.trim()}>
-          {isLoading ? 'Loading…' : 'Fetch Recent Games'}
+      <h2>Coach Options</h2>
+      <div className="option-list">
+        <button
+          className={`option-row ${activeOption === 'setup' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveOption(prev => (prev === 'setup' ? '' : 'setup'))
+          }}
+        >
+          Set up Position
+        </button>
+        <button
+          className={`option-row ${activeOption === 'moves' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveOption(prev => (prev === 'moves' ? '' : 'moves'))
+          }}
+        >
+          Make Moves
+        </button>
+        <button
+          className={`option-row ${activeOption === 'history' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveOption(prev => (prev === 'history' ? '' : 'history'))
+          }}
+        >
+          Load from Game History
+        </button>
+        <button
+          className={`option-row ${activeOption === 'pgn' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveOption(prev => (prev === 'pgn' ? '' : 'pgn'))
+          }}
+        >
+          Load from PGN
         </button>
       </div>
+
+      {activeOption === 'setup' && (
+        <p className="import-note">
+          Use the board to arrange pieces manually; each legal move updates the
+          position and analysis.
+        </p>
+      )}
+
+      {activeOption === 'moves' && (
+        <p className="import-note">
+          Drag pieces on the board to play through moves from the current
+          position.
+        </p>
+      )}
+
+      {activeOption === 'history' && (
+        <>
+          <div className="import-controls">
+            <input
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="Chess.com username"
+            />
+            <button onClick={fetchRecentGames} disabled={isLoading || !username.trim()}>
+              {isLoading ? 'Loading…' : 'Fetch Recent Games'}
+            </button>
+          </div>
+          <ul className="game-list">
+            {games.map(game => (
+              <li key={game.id} className="game-item">
+                <div className="game-meta">
+                  <div className="game-title">{game.title}</div>
+                  <div className="game-subtitle">{game.subtitle}</div>
+                  <div className="game-tags">
+                    <span>{game.timeClass}</span>
+                    <span>{game.result}</span>
+                  </div>
+                </div>
+                <button onClick={() => handleLoad(game)}>Load</button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {activeOption === 'pgn' && (
+        <div className="pgn-loader">
+          <textarea
+            value={pgnInput}
+            onChange={e => setPgnInput(e.target.value)}
+            placeholder="Paste PGN text here..."
+          />
+          <button onClick={handleLoadPgn}>Load PGN</button>
+        </div>
+      )}
+
       {error && <p className="import-error">{error}</p>}
-      <ul className="game-list">
-        {games.map(game => (
-          <li key={game.id} className="game-item">
-            <div className="game-meta">
-              <div className="game-title">{game.title}</div>
-              <div className="game-subtitle">{game.subtitle}</div>
-              <div className="game-tags">
-                <span>{game.timeClass}</span>
-                <span>{game.result}</span>
-              </div>
-            </div>
-            <button onClick={() => handleLoad(game)}>Load</button>
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }

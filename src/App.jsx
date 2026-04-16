@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import AccountScreen from './components/account/AccountScreen.jsx'
+import AnalysisPanel from './components/analysis/AnalysisPanel.jsx'
 import BoardPanel from './components/board/BoardPanel.jsx'
 import ChatPanel from './components/chat/ChatPanel.jsx'
 import MLPanel from './components/ml/MLPanel.jsx'
@@ -14,11 +15,20 @@ const VIEWS = {
   account: 'account',
   coach: 'coach',
   openingTrainer: 'opening-trainer',
+  weaknessProfile: 'weakness-profile',
   settings: 'settings',
 }
 
 export default function App() {
   const [activeView, setActiveView] = useState(VIEWS.account)
+  const [hideCoachOptions, setHideCoachOptions] = useState(false)
+  const [gameStarted, setGameStarted] = useState(false)
+  const [boardNavState, setBoardNavState] = useState({
+    moveIndex: 0,
+    totalMoves: 0,
+    opening: 'Unknown',
+    theoryExitPly: null,
+  })
   const [fen, setFen] = useState(
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
   )
@@ -49,6 +59,7 @@ export default function App() {
   const handleLoadImportedGame = gamePgn => {
     setExternalPgnToLoad(gamePgn)
     setExternalPgnLoadId(prev => prev + 1)
+    setGameStarted(true)
   }
 
   const handleTrainerProgress = ({ lineId, success }) => {
@@ -92,6 +103,7 @@ export default function App() {
   const fullWidthMain =
     activeView === VIEWS.account ||
     activeView === VIEWS.openingTrainer ||
+    activeView === VIEWS.weaknessProfile ||
     activeView === VIEWS.settings
 
   return (
@@ -135,16 +147,24 @@ export default function App() {
               onTrainerConfigChange={setTrainerConfig}
             />
           </div>
+        ) : activeView === VIEWS.weaknessProfile ? (
+          <div className="app-page">
+            <MLPanel onProfileChange={setWeaknessProfile} />
+          </div>
         ) : activeView === VIEWS.settings ? (
           <SettingsPage />
         ) : (
           <>
         <div className="left-panel">
           <BoardPanel
-            fen={fen}
             onFenChange={setFen}
             onPgnChange={setPgn}
             onMovePlayed={setLastMoveEvent}
+            onNavigationStateChange={setBoardNavState}
+            onUserStartedPlaying={() => {
+              setHideCoachOptions(true)
+              setGameStarted(true)
+            }}
             onOpeningChange={setOpeningContext}
             onTrainerFeedback={setTrainerFeedbackContext}
             onTrainerProgress={handleTrainerProgress}
@@ -161,7 +181,23 @@ export default function App() {
           />
         </div>
         <div className="right-panel">
-          <GameImportPanel onLoadGame={handleLoadImportedGame} />
+          {gameStarted && (
+            <div className="coach-live-panel">
+              <div className="board-status">
+                <span>
+                  Move {boardNavState.moveIndex} / {boardNavState.totalMoves}
+                </span>
+              </div>
+              <AnalysisPanel
+                embedded
+                lines={lines}
+                isReady={isReady}
+                engineError={engineError}
+                opening={boardNavState.opening}
+                theoryExitPly={boardNavState.theoryExitPly}
+              />
+            </div>
+          )}
           <ChatPanel
             fen={fen}
             pgn={pgn}
@@ -173,7 +209,15 @@ export default function App() {
             weaknessProfile={weaknessProfile}
             trainerFeedbackContext={trainerFeedbackContext}
           />
-          <MLPanel onProfileChange={setWeaknessProfile} />
+          {!hideCoachOptions && (
+            <GameImportPanel
+              onLoadGame={pgnText => {
+                handleLoadImportedGame(pgnText)
+                setGameStarted(true)
+              }}
+              onEngage={() => setHideCoachOptions(true)}
+            />
+          )}
         </div>
           </>
         )}

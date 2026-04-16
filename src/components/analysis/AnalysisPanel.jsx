@@ -4,8 +4,12 @@ export default function AnalysisPanel({
   lines,
   isReady,
   engineError,
+  opening = 'Unknown',
+  theoryExitPly = null,
   embedded = false,
 }) {
+  const theoryExitMove = theoryExitPly != null ? Math.max(1, theoryExitPly) : null
+
   return (
     <div
       className={
@@ -15,6 +19,12 @@ export default function AnalysisPanel({
       <h2>Engine Analysis</h2>
       <div className="analysis-panel__main">
         <div className="analysis-panel__status">
+          <p className="status status-opening">Opening: {opening}</p>
+          {theoryExitMove != null && (
+            <p className="status status-theory-exit">
+              Left Theory at move {theoryExitMove}
+            </p>
+          )}
           {engineError && (
             <p className="status status-error">
               Stockfish failed: {engineError}

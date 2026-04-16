@@ -11,6 +11,33 @@
   max-width: 512px;
 }
 
+.board-nav-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 0 0 8px;
+}
+
+.board-nav-controls button {
+  min-width: 44px;
+  padding: 6px 12px;
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #1a6aa8;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.board-nav-controls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.board-nav-controls button:hover {
+  background: #1a6aa8;
+}
+
 .board-stage {
   display: flex;
   align-items: stretch;
@@ -69,40 +96,6 @@
   box-shadow: none !important;
 }
 
-.fen-display {
-  width: 100%;
-  max-width: 512px;
-  font-size: 0.8rem;
-  color: #d6d6d6;
-  background: #1a1a2e;
-  border: 1px solid #0f3460;
-  border-radius: 4px;
-  padding: 8px;
-  word-break: break-all;
-}
-
-.pgn-input {
-  width: 100%;
-  max-width: 512px;
-  min-height: 96px;
-  resize: vertical;
-  background: #1a1a2e;
-  color: #e6e6e6;
-  border: 1px solid #0f3460;
-  border-radius: 4px;
-  padding: 8px;
-  font-family: inherit;
-  font-size: 0.85rem;
-}
-
-.pgn-error {
-  margin: -4px 0 0;
-  width: 100%;
-  max-width: 512px;
-  color: #ff8b8b;
-  font-size: 0.8rem;
-}
-
 .board-controls {
   display: flex;
   gap: 8px;
@@ -138,6 +131,12 @@
     font-size: 0.78rem;
   }
 
+  .board-nav-controls button {
+    min-width: 36px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+  }
+
   .move-grade-item {
     font-size: 0.74rem;
   }
@@ -169,21 +168,6 @@
   justify-content: flex-start;
   font-size: 0.8rem;
   color: #afafaf;
-}
-
-.opening-status {
-  width: 100%;
-  max-width: 512px;
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 0.8rem;
-  color: #bcd2ff;
-}
-
-.theory-exit {
-  color: #ffb86b;
-  font-weight: 600;
 }
 
 .trainer-message {

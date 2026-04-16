@@ -16,6 +16,40 @@
   color: #7ecfff;
 }
 
+.option-list {
+  display: grid;
+  gap: 6px;
+}
+
+.option-row {
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  background: #1a1a2e;
+  color: #d6deef;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.option-row:hover {
+  background: #223155;
+}
+
+.option-row.active {
+  background: #0f3460;
+  border-color: #1a6aa8;
+  color: #eef4ff;
+}
+
+.import-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #aab7d2;
+  line-height: 1.4;
+}
+
 .import-controls {
   display: flex;
   gap: 8px;
@@ -32,6 +66,34 @@
 }
 
 .import-controls button {
+  padding: 6px 12px;
+  background: #1a6aa8;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.pgn-loader {
+  display: grid;
+  gap: 8px;
+}
+
+.pgn-loader textarea {
+  min-height: 110px;
+  resize: vertical;
+  background: #0f1f3d;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  color: #e0e0e0;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.pgn-loader button {
+  justify-self: start;
   padding: 6px 12px;
   background: #1a6aa8;
   color: #fff;
