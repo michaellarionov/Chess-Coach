@@ -1,13 +1,24 @@
 import { useEffect, useState } from 'react'
+import AccountScreen from './components/account/AccountScreen.jsx'
 import BoardPanel from './components/board/BoardPanel.jsx'
 import ChatPanel from './components/chat/ChatPanel.jsx'
 import MLPanel from './components/ml/MLPanel.jsx'
 import GameImportPanel from './components/import/GameImportPanel.jsx'
 import OpeningTrainerPanel from './components/trainer/OpeningTrainerPanel.jsx'
+import SettingsPage from './components/settings/SettingsPage.jsx'
+import AppHeaderMenu from './components/layout/AppHeaderMenu.jsx'
 import useStockfish from './hooks/useStockfish.js'
 import './App.css'
 
+const VIEWS = {
+  account: 'account',
+  coach: 'coach',
+  openingTrainer: 'opening-trainer',
+  settings: 'settings',
+}
+
 export default function App() {
+  const [activeView, setActiveView] = useState(VIEWS.account)
   const [fen, setFen] = useState(
     'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
   )
@@ -78,12 +89,56 @@ export default function App() {
     })
   }, [lastMoveEvent, fen, evaluation, bestMove, lines, openingContext, weaknessProfile])
 
+  const fullWidthMain =
+    activeView === VIEWS.account ||
+    activeView === VIEWS.openingTrainer ||
+    activeView === VIEWS.settings
+
   return (
     <div className="app-layout">
       <header className="app-header">
-        <h1>Chess Coach</h1>
+        <div className="app-header-inner">
+          <h1>Chess Coach</h1>
+          <div className="app-header-trailing">
+            <nav className="app-header-nav" aria-label="Main">
+              <button
+                type="button"
+                className={`app-nav-btn${activeView === VIEWS.coach ? ' app-nav-btn--active' : ''}`}
+                onClick={() => setActiveView(VIEWS.coach)}
+              >
+                Coach
+              </button>
+              <button
+                type="button"
+                className={`app-nav-btn${activeView === VIEWS.account ? ' app-nav-btn--active' : ''}`}
+                onClick={() => setActiveView(VIEWS.account)}
+              >
+                Account
+              </button>
+            </nav>
+            {activeView === VIEWS.coach && (
+              <AppHeaderMenu onNavigate={setActiveView} />
+            )}
+          </div>
+        </div>
       </header>
-      <main className="app-main">
+      <main
+        className={`app-main${fullWidthMain ? ' app-main--full' : ''}`}
+      >
+        {activeView === VIEWS.account ? (
+          <AccountScreen onBack={() => setActiveView(VIEWS.coach)} />
+        ) : activeView === VIEWS.openingTrainer ? (
+          <div className="app-page">
+            <OpeningTrainerPanel
+              trainerConfig={trainerConfig}
+              progressByLine={trainerProgressByLine}
+              onTrainerConfigChange={setTrainerConfig}
+            />
+          </div>
+        ) : activeView === VIEWS.settings ? (
+          <SettingsPage />
+        ) : (
+          <>
         <div className="left-panel">
           <BoardPanel
             fen={fen}
@@ -96,6 +151,7 @@ export default function App() {
             externalPgnToLoad={externalPgnToLoad}
             externalPgnLoadId={externalPgnLoadId}
             trainerConfig={trainerConfig}
+            trainerActive={activeView === VIEWS.openingTrainer}
             evalLine={lines[0]}
             engineLines={lines}
             bestMove={bestMove}
@@ -105,11 +161,6 @@ export default function App() {
           />
         </div>
         <div className="right-panel">
-          <OpeningTrainerPanel
-            trainerConfig={trainerConfig}
-            progressByLine={trainerProgressByLine}
-            onTrainerConfigChange={setTrainerConfig}
-          />
           <GameImportPanel onLoadGame={handleLoadImportedGame} />
           <ChatPanel
             fen={fen}
@@ -124,6 +175,8 @@ export default function App() {
           />
           <MLPanel onProfileChange={setWeaknessProfile} />
         </div>
+          </>
+        )}
       </main>
     </div>
   )

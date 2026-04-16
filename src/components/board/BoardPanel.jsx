@@ -151,6 +151,7 @@ export default function BoardPanel({
   externalPgnToLoad,
   externalPgnLoadId,
   trainerConfig,
+  trainerActive = false,
   evalLine,
   engineLines,
   bestMove,
@@ -217,7 +218,9 @@ export default function BoardPanel({
     }
     return scoreToWhiteFraction(evaluation?.score || evalLine?.score)
   }, [evaluation, evalLine])
-  const trainerEnabled = Boolean(trainerConfig?.enabled && trainerConfig?.line)
+  const trainerEnabled = Boolean(
+    trainerActive && trainerConfig?.enabled && trainerConfig?.line,
+  )
 
   const finishTrainerAttempt = success => {
     if (!trainerEnabled || trainerRef.current.complete) return
@@ -399,7 +402,6 @@ export default function BoardPanel({
             }
             const expectedUci = trainerLineMovesRef.current[priorIndex]
             if (expectedUci && moveUci !== expectedUci) {
-              game.undo()
               trainerRef.current.hadMistake = true
               setTrainerHintMove(expectedUci)
               setTrainerMessage(
@@ -412,10 +414,10 @@ export default function BoardPanel({
                 correctMove: expectedUci,
                 opening: trainerConfig?.line || null,
               })
-              return 'snapback'
+            } else {
+              setTrainerHintMove(null)
+              setTrainerMessage('')
             }
-            setTrainerHintMove(null)
-            setTrainerMessage('')
           }
 
           const currentEval = evaluationRef.current
@@ -541,6 +543,15 @@ export default function BoardPanel({
   }, [externalPgnLoadId])
 
   useEffect(() => {
+    if (trainerActive) return
+    trainerLineMovesRef.current = []
+    trainerRef.current = { started: false, hadMistake: false, complete: false }
+    setTrainerHintMove(null)
+    setTrainerMessage('')
+  }, [trainerActive])
+
+  useEffect(() => {
+    if (!trainerActive) return
     if (!trainerConfig?.sessionId) return
     if (!trainerEnabled || !trainerConfig.line?.pgn) {
       trainerLineMovesRef.current = []
@@ -566,7 +577,7 @@ export default function BoardPanel({
       setTrainerMessage('Could not parse selected opening line.')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trainerConfig?.sessionId])
+  }, [trainerConfig?.sessionId, trainerActive, trainerEnabled, trainerConfig?.line?.pgn])
 
   const currentOpening = openingState.perPly[moveIndex] || null
   const theoryExited =
@@ -612,10 +623,7 @@ export default function BoardPanel({
       <div className="board-panel-analysis">
         <AnalysisPanel
           embedded
-          fen={fen}
           lines={engineLines}
-          bestMove={bestMove}
-          evaluation={evaluation}
           isReady={isEngineReady}
           engineError={engineError}
         />

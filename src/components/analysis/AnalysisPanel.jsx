@@ -1,20 +1,11 @@
-import { uciMoveToSan } from '../../utils/uciToSan.js'
 import './AnalysisPanel.css'
 
 export default function AnalysisPanel({
-  fen,
   lines,
-  bestMove,
-  evaluation,
   isReady,
   engineError,
   embedded = false,
 }) {
-  const bestSan =
-    fen && bestMove && bestMove.length >= 4
-      ? uciMoveToSan(fen, bestMove)
-      : bestMove || '…'
-
   return (
     <div
       className={
@@ -34,11 +25,6 @@ export default function AnalysisPanel({
           )}
           {!engineError && isReady && lines.length === 0 && (
             <p className="status">Analysing…</p>
-          )}
-          {!engineError && isReady && (
-            <p className="status">
-              Best move: {bestSan} | Eval: {evaluation?.score || '...'}
-            </p>
           )}
         </div>
         <ul className="lines">

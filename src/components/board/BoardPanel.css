@@ -63,6 +63,12 @@
   border-radius: 4px;
 }
 
+/* chessboard.js drag/selection highlights */
+.chessboard .highlight1-32417,
+.chessboard .highlight2-9c5d2 {
+  box-shadow: none !important;
+}
+
 .fen-display {
   width: 100%;
   max-width: 512px;

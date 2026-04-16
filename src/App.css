@@ -10,6 +10,24 @@
   border-bottom: 1px solid #0f3460;
 }
 
+.app-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.app-header-trailing {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .app-header h1 {
   margin: 0;
   font-size: 1.4rem;
@@ -17,11 +35,52 @@
   letter-spacing: 0.05em;
 }
 
+.app-header-nav {
+  display: flex;
+  gap: 8px;
+}
+
+.app-nav-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: 1px solid #0f3460;
+  background: #1a1a2e;
+  color: #b8c8e0;
+  font-size: 0.88rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.app-nav-btn:hover {
+  background: #243152;
+  color: #e4e4e4;
+}
+
+.app-nav-btn--active {
+  background: #0f3460;
+  border-color: #1a6aa8;
+  color: #e8e8e8;
+  font-weight: 600;
+}
+
 .app-main {
   display: flex;
   flex: 1;
   gap: 16px;
   padding: 16px;
+  min-height: 0;
+}
+
+.app-main--full {
+  flex-direction: column;
+}
+
+.app-page {
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  min-height: 0;
 }
 
 .left-panel {
@@ -51,6 +110,30 @@
 @media (max-width: 560px) {
   .app-header {
     padding: 10px 14px;
+  }
+
+  .app-header-inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-header-trailing {
+    margin-left: 0;
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .app-header-nav {
+    justify-content: stretch;
+    flex: 1;
+  }
+
+  .app-nav-btn {
+    flex: 1;
+  }
+
+  .app-header-menu {
+    flex: 0 0 auto;
   }
 
   .app-header h1 {
