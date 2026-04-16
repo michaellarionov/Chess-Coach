@@ -9,6 +9,7 @@
     "prebuild": "npm run assets:sync",
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "node scripts/copy-github-pages-404.js",
     "preview": "vite preview",
     "build:openings": "node scripts/build-openings-db.mjs",
     "cap:sync": "npm run build && npx cap sync",
