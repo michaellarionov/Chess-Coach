@@ -147,6 +147,7 @@ export default function ChatPanel({
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
       },
+      credentials: 'include',
       body: JSON.stringify(buildPayload(userPrompt, history)),
     })
 

@@ -6,8 +6,8 @@ function isValidEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim())
 }
 
-export default function AccountScreen({ onBack }) {
-  const { user, ready, login, signup, logout } = useAuth()
+export default function AccountScreen({ onBack, onAuthSuccess }) {
+  const { user, ready, login, signup } = useAuth()
   const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,7 +30,10 @@ export default function AccountScreen({ onBack }) {
       const fn = mode === 'signin' ? login : signup
       const r = await fn(email, password)
       if (!r.ok) setError(r.error || 'Something went wrong.')
-      else setPassword('')
+      else {
+        setPassword('')
+        onAuthSuccess?.()
+      }
     } finally {
       setPending(false)
     }
@@ -44,30 +47,7 @@ export default function AccountScreen({ onBack }) {
     )
   }
 
-  if (user) {
-    return (
-      <div className="account-screen">
-        <div className="account-card">
-          <h2 className="account-title">Account</h2>
-          <p className="account-signed-in">
-            Signed in as <strong>{user.email}</strong>
-          </p>
-          <p className="account-note">
-            Your credentials are stored only in this browser (local storage).
-            Use a real backend when you deploy for production sign-in.
-          </p>
-          <div className="account-actions">
-            <button type="button" className="account-btn secondary" onClick={onBack}>
-              Back to Chess Coach
-            </button>
-            <button type="button" className="account-btn danger" onClick={logout}>
-              Log out
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (user) return null
 
   return (
     <div className="account-screen">

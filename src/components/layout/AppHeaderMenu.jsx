@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import './AppHeaderMenu.css'
 
-export default function AppHeaderMenu({ onNavigate }) {
+export default function AppHeaderMenu({ onNavigate, onLogout }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
 
@@ -19,6 +19,11 @@ export default function AppHeaderMenu({ onNavigate }) {
   const pick = view => {
     setOpen(false)
     onNavigate?.(view)
+  }
+
+  const logout = () => {
+    setOpen(false)
+    onLogout?.()
   }
 
   return (
@@ -39,6 +44,16 @@ export default function AppHeaderMenu({ onNavigate }) {
       </button>
       {open && (
         <ul className="app-header-menu__list" role="menu">
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              className="app-header-menu__item"
+              onClick={() => pick('account')}
+            >
+              Account
+            </button>
+          </li>
           <li role="none">
             <button
               type="button"
@@ -77,6 +92,16 @@ export default function AppHeaderMenu({ onNavigate }) {
               onClick={() => pick('endgame-practice')}
             >
               Endgame Practice
+            </button>
+          </li>
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              className="app-header-menu__item"
+              onClick={logout}
+            >
+              Log out
             </button>
           </li>
         </ul>

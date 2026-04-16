@@ -6,40 +6,79 @@ import {
   useMemo,
   useState,
 } from 'react'
-import * as auth from '../utils/authStorage.js'
 
 const AuthContext = createContext(null)
+
+function apiBase() {
+  const base = import.meta.env.VITE_API_BASE_URL?.trim()
+  if (!base) return ''
+  return base.replace(/\/+$/, '')
+}
+
+async function apiFetch(path, options = {}) {
+  const url = `${apiBase()}${path}`
+  const res = await fetch(url, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  })
+  return res
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const s = auth.getSession()
-    if (s?.email) setUser({ email: s.email })
-    setReady(true)
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await apiFetch('/api/auth/me', { method: 'GET' })
+        const json = await res.json().catch(() => null)
+        if (cancelled) return
+        setUser(json?.user || null)
+      } catch {
+        if (!cancelled) setUser(null)
+      } finally {
+        if (!cancelled) setReady(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const login = useCallback(async (email, password) => {
-    const r = await auth.authenticate(email, password)
-    if (!r.ok) return r
-    auth.setSession(r.email)
-    setUser({ email: r.email })
+    const res = await apiFetch('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    })
+    const json = await res.json().catch(() => null)
+    if (!res.ok || !json?.ok) return { ok: false, error: json?.error || 'Login failed.' }
+    setUser(json.user || null)
     return { ok: true }
   }, [])
 
   const signup = useCallback(async (email, password) => {
-    const r = await auth.registerAccount(email, password)
-    if (!r.ok) return r
-    const normalized = email.toLowerCase().trim()
-    auth.setSession(normalized)
-    setUser({ email: normalized })
+    const res = await apiFetch('/api/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    })
+    const json = await res.json().catch(() => null)
+    if (!res.ok || !json?.ok) return { ok: false, error: json?.error || 'Sign up failed.' }
+    setUser(json.user || null)
     return { ok: true }
   }, [])
 
-  const logout = useCallback(() => {
-    auth.clearSession()
-    setUser(null)
+  const logout = useCallback(async () => {
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST', body: '{}' })
+    } finally {
+      setUser(null)
+    }
   }, [])
 
   const value = useMemo(

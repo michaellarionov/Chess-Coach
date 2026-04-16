@@ -4,6 +4,9 @@ dist/
 .env.local
 .env
 !.env.backend.example
+backend/data/
+backend/*.sqlite
+backend/*.db
 
 
 

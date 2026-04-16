@@ -10,6 +10,7 @@ import EndgamePracticePage from './components/endgame/EndgamePracticePage.jsx'
 import SettingsPage from './components/settings/SettingsPage.jsx'
 import AppHeaderMenu from './components/layout/AppHeaderMenu.jsx'
 import useStockfish from './hooks/useStockfish.js'
+import { useAuth } from './context/AuthContext.jsx'
 import './App.css'
 
 const VIEWS = {
@@ -22,6 +23,7 @@ const VIEWS = {
 }
 
 export default function App() {
+  const { user, ready: authReady, logout } = useAuth()
   const [activeView, setActiveView] = useState(VIEWS.account)
   const [hideCoachOptions, setHideCoachOptions] = useState(false)
   const [gameStarted, setGameStarted] = useState(false)
@@ -109,6 +111,24 @@ export default function App() {
     activeView === VIEWS.endgamePractice ||
     activeView === VIEWS.settings
 
+  useEffect(() => {
+    if (!authReady) return
+    if (!user && activeView !== VIEWS.account) {
+      setActiveView(VIEWS.account)
+      return
+    }
+    if (user && activeView === VIEWS.account) {
+      setActiveView(VIEWS.coach)
+    }
+  }, [authReady, user, activeView])
+
+  const handleLogout = async () => {
+    await logout()
+    setActiveView(VIEWS.account)
+    setHideCoachOptions(false)
+    setGameStarted(false)
+  }
+
   return (
     <div className="app-layout">
       <header className="app-header">
@@ -116,23 +136,18 @@ export default function App() {
           <h1>Chess Coach</h1>
           <div className="app-header-trailing">
             <nav className="app-header-nav" aria-label="Main">
-              <button
-                type="button"
-                className={`app-nav-btn${activeView === VIEWS.coach ? ' app-nav-btn--active' : ''}`}
-                onClick={() => setActiveView(VIEWS.coach)}
-              >
-                Coach
-              </button>
-              <button
-                type="button"
-                className={`app-nav-btn${activeView === VIEWS.account ? ' app-nav-btn--active' : ''}`}
-                onClick={() => setActiveView(VIEWS.account)}
-              >
-                Account
-              </button>
+              {!!user && (
+                <button
+                  type="button"
+                  className={`app-nav-btn${activeView === VIEWS.coach ? ' app-nav-btn--active' : ''}`}
+                  onClick={() => setActiveView(VIEWS.coach)}
+                >
+                  Coach
+                </button>
+              )}
             </nav>
-            {activeView === VIEWS.coach && (
-              <AppHeaderMenu onNavigate={setActiveView} />
+            {activeView === VIEWS.coach && !!user && (
+              <AppHeaderMenu onNavigate={setActiveView} onLogout={handleLogout} />
             )}
           </div>
         </div>
@@ -140,8 +155,15 @@ export default function App() {
       <main
         className={`app-main${fullWidthMain ? ' app-main--full' : ''}`}
       >
-        {activeView === VIEWS.account ? (
-          <AccountScreen onBack={() => setActiveView(VIEWS.coach)} />
+        {!authReady ? (
+          <div className="app-page">
+            <p>Checking session…</p>
+          </div>
+        ) : !user ? (
+          <AccountScreen
+            onBack={() => setActiveView(VIEWS.account)}
+            onAuthSuccess={() => setActiveView(VIEWS.coach)}
+          />
         ) : activeView === VIEWS.openingTrainer ? (
           <div className="app-page">
             <OpeningTrainerPanel

@@ -19,7 +19,7 @@ export default defineConfig(({ command }) => ({
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },
     proxy: {
-      '/api/anthropic': {
+      '/api': {
         target: 'http://localhost:8787',
         changeOrigin: true,
       },
